@@ -30,7 +30,7 @@ For your convenience, I have uploaded a few examples:
   It contains 584 basic definitions and inductives such as equality, natural numbers, and the primitive quotient type (without the soundness axiom).
 - [stdlib.out](https://gist.github.com/SkySkimmer/92e080ce3a0a89f0f592343076a86521/raw/7353fd277766a41a50cf4d6731443b3bb0e62c2a/stdlib.out) (14MB)
   This is the whole Lean stdlib, totalling 10244 definitions and inductives.
-- [mathlib.7z](https://gofile.io/?c=8U8XpZ) (211MB compressed to 36MB)
+- [mathlib.out.zip](dumps/mathlib.out.zip) (211MB compressed to 56MB, NB: uses git lfs)
   All mathlib (AFAICT): 66400 definitions and inductives (the way I counted may differ a bit from the way Lean counts).
 
 Then start Coq and run
