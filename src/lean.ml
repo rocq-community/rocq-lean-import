@@ -791,7 +791,7 @@ let name_for n i =
   else
     (* prevent resetting the number *)
     let base = if i = 0 then base else Id.of_string (Id.to_string base ^ "_") in
-    Namegen.next_global_ident_away base Id.Set.empty
+    Namegen.next_global_ident_away (Global.safe_env ()) base Id.Set.empty
 
 let get_predeclared_ind indn n i =
   if N.equal n (N.append_list N.anon indn) then
@@ -1408,7 +1408,7 @@ and declare_ind n { params; ty; ctors; univs } i =
                        match na.Context.binder_name with
                        | Names.Anonymous -> (ids, (na, t))
                        | Names.Name id ->
-                         let id = Namegen.next_global_ident_away id ids in
+                         let id = Namegen.next_global_ident_away (Global.safe_env ()) id ids in
                          let ids = Id.Set.add id ids in
                          line_msg
                            (N.of_list
