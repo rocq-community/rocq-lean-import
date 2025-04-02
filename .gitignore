@@ -1,4 +1,4 @@
-Makefile.coq*
+Makefile.rocq*
 
 src/g_lean.ml
 
