@@ -32,6 +32,8 @@ let quickdef ~name ~types ~univs body =
 
 type extended_level = Level of Level.t | LSProp
 
+type scheme_family = SchemeSProp | SchemeType
+
 (** produce [args, recargs] inside mixed context [args/recargs] [info] is in
     reverse order, ie the head is about the last arg in application order
 
@@ -111,9 +113,11 @@ let lean_scheme env ~dep mind u s =
 
   let body =
     let sigma = Evd.from_env env in
-    let sigma, s' =
-      Evd.fresh_sort_in_family ~rigid:UnivRigid sigma
-        (if s = LSProp then InSProp else InType)
+    let sigma, s' = match s with
+      | LSProp -> sigma, EConstr.ESorts.sprop
+      | Level _ ->
+        let sigma, u = Evd.new_univ_level_variable UnivRigid sigma in
+        sigma, EConstr.ESorts.make @@ Sorts.sort_of_univ @@ Universe.make u
     in
     let sigma, body =
       Indrec.build_induction_scheme env sigma
@@ -1518,7 +1522,7 @@ and declare_ind n { params; ty; ctors; univs } i =
   (* elim *)
   let make_scheme fam =
     let u =
-      if fam = Sorts.InSProp then LSProp
+      if fam = SchemeSProp then LSProp
       else
         let u =
           if lean_fancy_univs () then
@@ -1557,8 +1561,8 @@ and declare_ind n { params; ty; ctors; univs } i =
   in
   let nrec = N.append n "rec" in
   let elims =
-    if squashy.lean_squashes then [ ("_indl", Sorts.InSProp) ]
-    else [ ("_recl", InType); ("_indl", InSProp) ]
+    if squashy.lean_squashes then [ ("_indl", SchemeSProp) ]
+    else [ ("_recl", SchemeType); ("_indl", SchemeSProp) ]
   in
 
   let declare_one_scheme (suffix, sort) =
@@ -1581,13 +1585,13 @@ and declare_ind n { params; ty; ctors; univs } i =
       Some u
     in
     let algs =
-      if sort = InSProp then algs
+      if sort = SchemeSProp then algs
       else List.map (UnivSubst.subst_univs_universe liftu) algs
     in
     let elim = { ref = elim; algs } in
     let j =
       if squashy.lean_squashes then i
-      else if sort == InType then 2 * i
+      else if sort == SchemeType then 2 * i
       else (2 * i) + 1
     in
     add_declared nrec j elim
