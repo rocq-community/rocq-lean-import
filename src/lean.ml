@@ -767,7 +767,7 @@ let univ_entry_gen { map; levels; graph } ounivs =
       (fun (a, _, b) -> Level.Set.mem a uset || Level.Set.mem b uset)
       csts
   in
-  let unames = ([||], Array.of_list (make_unames univs ounivs)) in
+  let unames = { quals = [||]; univs = Array.of_list (make_unames univs ounivs)} in
   let univs = Instance.of_array ([||], Array.of_list univs) in
   let uctx = UContext.make unames (univs, csts) in
   let subst = snd (make_instance_subst univs) in
@@ -1346,7 +1346,7 @@ and declare_ind n { params; ty; ctors; univs } i =
         match i with
         | 0 ->
           UContext.make
-            ([||], [| Name (Id.of_string "u") |])
+            { quals = [||]; univs =  [| Name (Id.of_string "u") |]}
             ( Instance.of_array ([||], [| univ_of_name (N.append N.anon "u") |]),
               Constraints.empty )
         | 1 -> UContext.empty
@@ -1542,14 +1542,14 @@ and declare_ind n { params; ty; ctors; univs } i =
     let inst, uentry =
       let inst = UContext.instance univs in
       let csts = UContext.constraints univs in
-      let qnames, unames = UContext.names univs in
+      let { quals = qnames; univs = unames} = UContext.names univs in
       let uentry =
         match u with
         | LSProp -> UState.Polymorphic_entry univs
         | Level u ->
           UState.Polymorphic_entry
             (UContext.make
-               (qnames, Array.append [| Name (Id.of_string "motive") |] unames)
+               {quals = qnames; univs = Array.append [| Name (Id.of_string "motive") |] unames}
                ( Instance.of_array
                    ([||], Array.append [| u |] (snd (Instance.to_array inst))),
                  csts ))
