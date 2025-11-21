@@ -116,7 +116,7 @@ let parse_char s =
   assert (String.length s = 2);
   Char.chr ((parse_hexa s.[0] * 16) + parse_hexa s.[1])
 
-let quot_name = N.append N.anon "quot"
+let quot_name = N.append N.anon "Quot"
 
 let do_line ~lcnt state l =
   let line_msg name =
