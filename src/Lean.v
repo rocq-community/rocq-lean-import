@@ -14,7 +14,6 @@ Cumulative
 Inductive eq@{u|} {α:Type@{u}} (a:α) : α -> SProp
   := eq_refl : eq a a.
 Notation "x = y" := (eq x y) : lean_scope.
-Notation Eq := eq (only parsing).
 
 Register eq as lean.Eq.
 
