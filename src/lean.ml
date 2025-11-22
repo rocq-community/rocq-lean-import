@@ -718,7 +718,7 @@ let get_predeclared_ind_any n i =
     (fun (indk, indh) ->
       get_predeclared_ind indh n i |> Option.map (fun x -> (indk, indh, x)))
     [
-      (Eq, [ "eq" ]);
+      (Eq, [ "Eq" ]);
       (Nat, [ "Nat" ]);
       (Nat_le, [ "Nat"; "le" ]);
       (Or, [ "Or" ]);

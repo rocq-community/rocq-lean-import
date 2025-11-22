@@ -14,13 +14,14 @@ Cumulative
 Inductive eq@{u|} {α:Type@{u}} (a:α) : α -> SProp
   := eq_refl : eq a a.
 Notation "x = y" := (eq x y) : lean_scope.
+Notation Eq := eq (only parsing).
 
-Register eq as lean.eq.
+Register eq as lean.Eq.
 
 Inductive eq_inst1@{|} {α:SProp} (a:α) : α -> SProp
   := eq_refl_inst1 : eq_inst1 a a.
 
-Register eq_inst1 as lean.eq_inst1.
+Register eq_inst1 as lean.Eq_inst1.
 
 (* Inductive List@{u Lean.u+1.0} (α : Type@{Lean.u+1.0}) : Type@{Lean.u+1.0} :=
     List_nil : List@{u Lean.u+1.0} α
