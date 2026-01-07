@@ -1373,9 +1373,10 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
               fields
           in
           let implfs = List.map (fun _ -> []) fields in
+          let poly = PolyFlags.default in
           ignore
             (Record.Internal.declare_projections (mind, 0) ~kind ~inhabitant_id
-               proj_flags implfs)
+               proj_flags ~poly implfs)
         | _ -> ()
       in
       (mind, algs, ind_name, cnames, univs, squashy)
