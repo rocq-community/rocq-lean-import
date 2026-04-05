@@ -398,24 +398,93 @@ Register Nat_isValidChar as lean.Nat_isValidChar.
 Register Char as lean.Char.
 Register reflective_Char_mk_prim as lean.Char.mk.reflective_prim.
 
-(* Cumulative ULift: using cumulativity instead of an inductive *)
+(* Cumulative ULift: using cumulativity instead of an inductive.
+   Instance 0: both r and s non-SProp *)
 Definition ULift_cumul@{r s|} (α : Type@{s}) : Type@{max(r,s)} := α.
 Register ULift_cumul as lean.ULift.cumul.
 
 Definition ULift_up_cumul@{r s|} {α : Type@{s}} (a : α) : ULift_cumul@{r s} α := a.
-Register ULift_up_cumul as lean.ULift.up.cumul.
+Register ULift_up_cumul as lean.ULift_up.cumul.
 
 Definition ULift_down_cumul@{r s|} {α : Type@{s}} (a : ULift_cumul@{r s} α) : α := a.
-Register ULift_down_cumul as lean.ULift.down.cumul.
+Register ULift_down_cumul as lean.ULift_down.cumul.
 
 Definition ULift_rec_cumul@{motive r s|} {α : Type@{s}} {P : ULift_cumul@{r s} α → Type@{motive}}
   (mk : forall (down : α), P (ULift_up_cumul down))
   (t : ULift_cumul@{r s} α) : P t
   := mk t.
-Register ULift_rec_cumul as lean.ULift.rec.cumul.
+Register ULift_rec_cumul as lean.ULift_rec.cumul.
 
 Definition ULift_ind_cumul@{r s|} {α : Type@{s}} {P : ULift_cumul@{r s} α → SProp}
   (mk : forall (down : α), P (ULift_up_cumul down))
   (t : ULift_cumul@{r s} α) : P t
   := mk t.
-Register ULift_ind_cumul as lean.ULift.ind.cumul.
+Register ULift_ind_cumul as lean.ULift_rec.cumul.ind.
+
+(* Instance 1: r=SProp, s non-SProp *)
+Definition ULift_cumul_inst1@{s|} (α : Type@{s}) : Type@{s} := α.
+Register ULift_cumul_inst1 as lean.ULift_inst1.cumul.
+
+Definition ULift_up_cumul_inst1@{s|} {α : Type@{s}} (a : α) : ULift_cumul_inst1@{s} α := a.
+Register ULift_up_cumul_inst1 as lean.ULift_up_inst1.cumul.
+
+Definition ULift_down_cumul_inst1@{s|} {α : Type@{s}} (a : ULift_cumul_inst1@{s} α) : α := a.
+Register ULift_down_cumul_inst1 as lean.ULift_down_inst1.cumul.
+
+Definition ULift_rec_cumul_inst1@{motive s|} {α : Type@{s}} {P : ULift_cumul_inst1@{s} α → Type@{motive}}
+  (mk : forall (down : α), P (ULift_up_cumul_inst1 down))
+  (t : ULift_cumul_inst1@{s} α) : P t
+  := mk t.
+Register ULift_rec_cumul_inst1 as lean.ULift_rec_inst1.cumul.
+
+Definition ULift_ind_cumul_inst1@{s|} {α : Type@{s}} {P : ULift_cumul_inst1@{s} α → SProp}
+  (mk : forall (down : α), P (ULift_up_cumul_inst1 down))
+  (t : ULift_cumul_inst1@{s} α) : P t
+  := mk t.
+Register ULift_ind_cumul_inst1 as lean.ULift_rec_inst1.cumul.ind.
+
+(* Instance 2: r non-SProp, s=SProp
+   Lean Prop maps to Rocq SProp, but arguments may live in Set by cumulativity,
+   so we use Set as the domain sort. *)
+Definition ULift_cumul_inst2@{r|} (α : Set) : Type@{r} := α.
+Register ULift_cumul_inst2 as lean.ULift_inst2.cumul.
+
+Definition ULift_up_cumul_inst2@{r|} {α : Set} (a : α) : ULift_cumul_inst2@{r} α := a.
+Register ULift_up_cumul_inst2 as lean.ULift_up_inst2.cumul.
+
+Definition ULift_down_cumul_inst2@{r|} {α : Set} (a : ULift_cumul_inst2@{r} α) : α := a.
+Register ULift_down_cumul_inst2 as lean.ULift_down_inst2.cumul.
+
+Definition ULift_rec_cumul_inst2@{motive r|} {α : Set} {P : ULift_cumul_inst2@{r} α → Type@{motive}}
+  (mk : forall (down : α), P (ULift_up_cumul_inst2 down))
+  (t : ULift_cumul_inst2@{r} α) : P t
+  := mk t.
+Register ULift_rec_cumul_inst2 as lean.ULift_rec_inst2.cumul.
+
+Definition ULift_ind_cumul_inst2@{r|} {α : Set} {P : ULift_cumul_inst2@{r} α → SProp}
+  (mk : forall (down : α), P (ULift_up_cumul_inst2 down))
+  (t : ULift_cumul_inst2@{r} α) : P t
+  := mk t.
+Register ULift_ind_cumul_inst2 as lean.ULift_rec_inst2.cumul.ind.
+
+(* Instance 3: both r=SProp, s=SProp *)
+Definition ULift_cumul_inst3@{|} (α : Set) : Set := α.
+Register ULift_cumul_inst3 as lean.ULift_inst3.cumul.
+
+Definition ULift_up_cumul_inst3@{|} {α : Set} (a : α) : ULift_cumul_inst3 α := a.
+Register ULift_up_cumul_inst3 as lean.ULift_up_inst3.cumul.
+
+Definition ULift_down_cumul_inst3@{|} {α : Set} (a : ULift_cumul_inst3 α) : α := a.
+Register ULift_down_cumul_inst3 as lean.ULift_down_inst3.cumul.
+
+Definition ULift_rec_cumul_inst3@{motive|} {α : Set} {P : ULift_cumul_inst3 α → Type@{motive}}
+  (mk : forall (down : α), P (ULift_up_cumul_inst3 down))
+  (t : ULift_cumul_inst3 α) : P t
+  := mk t.
+Register ULift_rec_cumul_inst3 as lean.ULift_rec_inst3.cumul.
+
+Definition ULift_ind_cumul_inst3@{|} {α : Set} {P : ULift_cumul_inst3 α → SProp}
+  (mk : forall (down : α), P (ULift_up_cumul_inst3 down))
+  (t : ULift_cumul_inst3 α) : P t
+  := mk t.
+Register ULift_ind_cumul_inst3 as lean.ULift_rec_inst3.cumul.ind.

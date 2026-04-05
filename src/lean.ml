@@ -688,6 +688,24 @@ let get_predeclared_ind indn n i =
     | exception _ -> None
   else None
 
+(** Like [get_predeclared_ind] but looks for an inductive predeclared as a
+    definition (using a ".cumul" suffix on the registration). Returns the
+    ConstRef of the predeclared definition. *)
+let get_predeclared_ind_as_def indn n i =
+  if N.equal n (N.append_list N.anon indn) then
+    let ind_name = name_for_core n i in
+    let reg = "lean." ^ Id.to_string ind_name ^ ".cumul" in
+    match Rocqlib.lib_ref reg with
+    | ConstRef c -> Some (ind_name, c)
+    | _ ->
+      CErrors.user_err
+        Pp.(
+          str "Bad registration for "
+          ++ str reg
+          ++ str " expected a constant.")
+    | exception _ -> None
+  else None
+
 let get_predeclared_def defn n i =
   if N.equal n (N.append_list N.anon defn) then
     let def_name = name_for_core n i in
@@ -703,6 +721,7 @@ let get_predeclared_def defn n i =
 
 type predeclared_ind_kind = Eq | Nat | Nat_le | Or | And | Fin | UInt32 | Char
 type predeclared_def_kind = UInt32_size | Nat_isValidChar
+type predeclared_ind_as_def_kind = ULift_cumul
 
 let get_predeclared_cnames (k : predeclared_ind_kind) n =
   match k with
@@ -737,6 +756,22 @@ let get_predeclared_ind_some n i =
   | _ :: _ :: _ ->
     CErrors.user_err
       Pp.(str "Multiple predeclared inductive types for " ++ N.pp n)
+
+let get_predeclared_ind_as_def_any n i =
+  List.filter_map
+    (fun (k, h) ->
+      get_predeclared_ind_as_def h n i |> Option.map (fun x -> (k, h, x)))
+    [
+      (ULift_cumul, [ "ULift" ]);
+    ]
+
+let get_predeclared_ind_as_def_some n i =
+  match get_predeclared_ind_as_def_any n i with
+  | [] -> None
+  | [ x ] -> Some x
+  | _ :: _ :: _ ->
+    CErrors.user_err
+      Pp.(str "Multiple predeclared ind-as-def constants for " ++ N.pp n)
 
 let get_predeclared_def_any n i =
   List.filter_map
@@ -821,12 +856,10 @@ let error_mode = function
   | MissingQuot when skip_missing_quot () -> Skip
   | _ -> error_mode ()
 
-let { Goptions.get = ulift_to_cumulativity } =
-  Goptions.declare_bool_option_and_ref
-    ~key:[ "Lean"; "ULift"; "To"; "Cumulativity" ]
-    ~value:false ()
-
 let ulift_name = N.append_list N.anon [ "ULift" ]
+
+let ulift_to_cumulativity () =
+  Rocqlib.has_ref "lean.ULift.cumul"
 
 module ZMap = CMap.Make (Z)
 
@@ -1220,31 +1253,29 @@ and to_params uconv params =
   (acc, List.rev params)
 
 and declare_ind { name = n; params; ty; ctors; univs } i =
-  (* Handle ULift with cumulativity *)
-  if ulift_to_cumulativity () && i = 0 && N.equal n ulift_name
-     && Rocqlib.has_ref "lean.ULift.cumul"
-  then begin
-    Feedback.msg_info Pp.(str "ULift is predeclared (cumulative)");
-    (* Register ULift type *)
-    let ulift_ref = Rocqlib.lib_ref "lean.ULift.cumul" in
+  (* Handle inductives predeclared as definitions (e.g., ULift with cumulativity).
+     We check if there's a cumul registration, then use per-instance registrations. *)
+  match get_predeclared_ind_as_def_some n 0 with
+  | Some (ULift_cumul, _, _) ->
+    let def_name = name_for_core n i in
+    let cumul_reg nm = "lean." ^ Id.to_string (name_for_core nm i) ^ ".cumul" in
+    Feedback.msg_info Pp.(Id.print def_name ++ str " is predeclared (cumulative)");
+    let ulift_ref = Rocqlib.lib_ref (cumul_reg n) in
     let inst = { ref = ulift_ref; algs = [] } in
     add_declared n i inst;
     (* Register ULift.up constructor *)
     let cname = N.append n "up" in
-    let ulift_up_ref = Rocqlib.lib_ref "lean.ULift.up.cumul" in
-    add_declared cname i { ref = ulift_up_ref; algs = [] };
+    add_declared cname i { ref = Rocqlib.lib_ref (cumul_reg cname); algs = [] };
     (* Register ULift.down *)
     let dname = N.append n "down" in
-    let ulift_down_ref = Rocqlib.lib_ref "lean.ULift.down.cumul" in
-    add_declared dname i { ref = ulift_down_ref; algs = [] };
-    (* Register eliminator (Type scheme at j=2*i=0, SProp scheme at j=2*i+1=1) *)
+    add_declared dname i { ref = Rocqlib.lib_ref (cumul_reg dname); algs = [] };
+    (* Register eliminator (Type scheme at j=2*i, SProp scheme at j=2*i+1) *)
     let nrec = N.append n "rec" in
-    let ulift_rec_ref = Rocqlib.lib_ref "lean.ULift.rec.cumul" in
-    add_declared nrec (2 * i) { ref = ulift_rec_ref; algs = [] };
-    let ulift_ind_ref = Rocqlib.lib_ref "lean.ULift.ind.cumul" in
-    add_declared nrec ((2 * i) + 1) { ref = ulift_ind_ref; algs = [] };
+    let rec_base = cumul_reg nrec in
+    add_declared nrec (2 * i) { ref = Rocqlib.lib_ref rec_base; algs = [] };
+    add_declared nrec ((2 * i) + 1) { ref = Rocqlib.lib_ref (rec_base ^ ".ind"); algs = [] };
     inst
-  end else
+  | None ->
   let mind, algs, ind_name, cnames, univs, squashy =
     match get_predeclared_ind_some n i with
     | Some (Eq, _, (ind_name, mind)) ->
