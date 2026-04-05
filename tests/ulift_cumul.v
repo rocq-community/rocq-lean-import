@@ -13,5 +13,3 @@ Check (fun (α : Type) (x : α) => ULift_down_cumul (ULift_up_cumul x) : α).
 
 (* Verify that the imported ULift_down is well-typed *)
 Check ULift_down.
-
-(* Test: importing ULift without cumulativity gives an inductive *)
