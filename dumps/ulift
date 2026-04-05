@@ -1,0 +1,30 @@
+1 #NS 0 r
+2 #NS 0 s
+3 #NS 0 α
+4 #NS 0 ULift
+5 #NS 4 up
+6 #NS 0 down
+7 #NS 0 self
+8 #NS 4 down
+1 #UP 1
+2 #UP 2
+3 #US 2
+4 #UM 2 1
+5 #US 4
+0 #EV 0
+1 #EV 1
+2 #ES 3
+3 #ES 5
+4 #EC 4 1 2
+5 #EA 4 1
+6 #EP #BD 6 0 5
+7 #EP #BI 3 2 6
+8 #EP #BD 3 2 3
+#IND 1 4 8 1 5 7 1 2
+9 #EA 4 0
+10 #EP #BD 7 9 1
+11 #EP #BI 3 2 10
+12 #EJ 4 0 0
+13 #EL #BD 7 9 12
+14 #EL #BD 3 2 13
+#DEF 8 11 14 1 2

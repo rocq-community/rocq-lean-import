@@ -397,3 +397,25 @@ End strings.
 Register Nat_isValidChar as lean.Nat_isValidChar.
 Register Char as lean.Char.
 Register reflective_Char_mk_prim as lean.Char.mk.reflective_prim.
+
+(* Cumulative ULift: using cumulativity instead of an inductive *)
+Definition ULift_cumul@{r s|} (α : Type@{s}) : Type@{max(r,s)} := α.
+Register ULift_cumul as lean.ULift.cumul.
+
+Definition ULift_up_cumul@{r s|} {α : Type@{s}} (a : α) : ULift_cumul@{r s} α := a.
+Register ULift_up_cumul as lean.ULift.up.cumul.
+
+Definition ULift_down_cumul@{r s|} {α : Type@{s}} (a : ULift_cumul@{r s} α) : α := a.
+Register ULift_down_cumul as lean.ULift.down.cumul.
+
+Definition ULift_rec_cumul@{motive r s|} {α : Type@{s}} {P : ULift_cumul@{r s} α → Type@{motive}}
+  (mk : forall (down : α), P (ULift_up_cumul down))
+  (t : ULift_cumul@{r s} α) : P t
+  := mk t.
+Register ULift_rec_cumul as lean.ULift.rec.cumul.
+
+Definition ULift_ind_cumul@{r s|} {α : Type@{s}} {P : ULift_cumul@{r s} α → SProp}
+  (mk : forall (down : α), P (ULift_up_cumul down))
+  (t : ULift_cumul@{r s} α) : P t
+  := mk t.
+Register ULift_ind_cumul as lean.ULift.ind.cumul.

@@ -821,6 +821,13 @@ let error_mode = function
   | MissingQuot when skip_missing_quot () -> Skip
   | _ -> error_mode ()
 
+let { Goptions.get = ulift_to_cumulativity } =
+  Goptions.declare_bool_option_and_ref
+    ~key:[ "Lean"; "ULift"; "To"; "Cumulativity" ]
+    ~value:false ()
+
+let ulift_name = N.append_list N.anon [ "ULift" ]
+
 module ZMap = CMap.Make (Z)
 
 let nat_ints = ref ZMap.empty
@@ -1004,6 +1011,10 @@ let rec to_constr =
       ret (mkProd (n, a, b))
     | Proj (lean_ind, field, c) ->
       to_constr env c >>= fun c ->
+      if ulift_to_cumulativity () && N.equal lean_ind ulift_name then
+        (* With cumulativity, ULift is transparent, so projection is identity *)
+        ret c
+      else
       get_uconv >>= fun uconv ->
       (* we retype to get the ind, because otherwise we need the lean
        univs for instantiation
@@ -1209,6 +1220,31 @@ and to_params uconv params =
   (acc, List.rev params)
 
 and declare_ind { name = n; params; ty; ctors; univs } i =
+  (* Handle ULift with cumulativity *)
+  if ulift_to_cumulativity () && i = 0 && N.equal n ulift_name
+     && Rocqlib.has_ref "lean.ULift.cumul"
+  then begin
+    Feedback.msg_info Pp.(str "ULift is predeclared (cumulative)");
+    (* Register ULift type *)
+    let ulift_ref = Rocqlib.lib_ref "lean.ULift.cumul" in
+    let inst = { ref = ulift_ref; algs = [] } in
+    add_declared n i inst;
+    (* Register ULift.up constructor *)
+    let cname = N.append n "up" in
+    let ulift_up_ref = Rocqlib.lib_ref "lean.ULift.up.cumul" in
+    add_declared cname i { ref = ulift_up_ref; algs = [] };
+    (* Register ULift.down *)
+    let dname = N.append n "down" in
+    let ulift_down_ref = Rocqlib.lib_ref "lean.ULift.down.cumul" in
+    add_declared dname i { ref = ulift_down_ref; algs = [] };
+    (* Register eliminator (Type scheme at j=2*i=0, SProp scheme at j=2*i+1=1) *)
+    let nrec = N.append n "rec" in
+    let ulift_rec_ref = Rocqlib.lib_ref "lean.ULift.rec.cumul" in
+    add_declared nrec (2 * i) { ref = ulift_rec_ref; algs = [] };
+    let ulift_ind_ref = Rocqlib.lib_ref "lean.ULift.ind.cumul" in
+    add_declared nrec ((2 * i) + 1) { ref = ulift_ind_ref; algs = [] };
+    inst
+  end else
   let mind, algs, ind_name, cnames, univs, squashy =
     match get_predeclared_ind_some n i with
     | Some (Eq, _, (ind_name, mind)) ->
