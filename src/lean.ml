@@ -856,11 +856,6 @@ let error_mode = function
   | MissingQuot when skip_missing_quot () -> Skip
   | _ -> error_mode ()
 
-let ulift_name = N.append_list N.anon [ "ULift" ]
-
-let ulift_to_cumulativity () =
-  Rocqlib.has_ref "lean.ULift.cumul"
-
 module ZMap = CMap.Make (Z)
 
 let nat_ints = ref ZMap.empty
@@ -1044,10 +1039,6 @@ let rec to_constr =
       ret (mkProd (n, a, b))
     | Proj (lean_ind, field, c) ->
       to_constr env c >>= fun c ->
-      if ulift_to_cumulativity () && N.equal lean_ind ulift_name then
-        (* With cumulativity, ULift is transparent, so projection is identity *)
-        ret c
-      else
       get_uconv >>= fun uconv ->
       (* we retype to get the ind, because otherwise we need the lean
        univs for instantiation
@@ -1056,32 +1047,40 @@ let rec to_constr =
         with_env_evm env uconv
           (fun env evd () ->
             let tc = Retyping.get_type_of env evd (EConstr.of_constr c) in
-            let tc, args =
-              EConstr.decompose_app evd (Reductionops.whd_all env evd tc)
+            let tc =
+              Reductionops.whd_all env evd tc
             in
-            let ((ind, _) as indu) =
-              Constr.destInd (EConstr.Unsafe.to_constr tc)
-            in
-            let mib, mip = Inductive.lookup_mind_specif (Global.env()) ind in
-            begin
-              match mip.mind_record with
-              | PrimRecord infos ->
-                let p, r =
-                  Declareops.inductive_make_projection ind mib ~proj_arg:field
-                in
-                (* unfolded?? *)
-                mkProj (Projection.make p false, r, c)
-              | NotRecord | FakeRecord ->
-                if
-                  mip.mind_relevance
-                  == EConstr.Unsafe.to_relevance EConstr.ERelevance.irrelevant
-                then
-                  CErrors.user_err
-                    Pp.(str "TODO projection for non record Prop inductive")
-                else
-                  CErrors.user_err
-                    Pp.(str "cannot project non record " ++ N.pp lean_ind)
-            end)
+            let tc_head, args = EConstr.decompose_app evd tc in
+            match EConstr.kind evd tc_head with
+            | Constr.Ind _ ->
+              (* Standard inductive: use normal projection *)
+              let ((ind, _) as indu) =
+                Constr.destInd (EConstr.Unsafe.to_constr tc_head)
+              in
+              let mib, mip = Inductive.lookup_mind_specif (Global.env()) ind in
+              begin
+                match mip.mind_record with
+                | PrimRecord infos ->
+                  let p, r =
+                    Declareops.inductive_make_projection ind mib ~proj_arg:field
+                  in
+                  (* unfolded?? *)
+                  mkProj (Projection.make p false, r, c)
+                | NotRecord | FakeRecord ->
+                  if
+                    mip.mind_relevance
+                    == EConstr.Unsafe.to_relevance EConstr.ERelevance.irrelevant
+                  then
+                    CErrors.user_err
+                      Pp.(str "TODO projection for non record Prop inductive")
+                  else
+                    CErrors.user_err
+                      Pp.(str "cannot project non record " ++ N.pp lean_ind)
+              end
+            | _ ->
+              (* Type is not an inductive (e.g., transparent cumulative ULift).
+                 Projection is the identity. *)
+              c)
           ()
       in
       ret c
@@ -1254,8 +1253,8 @@ and to_params uconv params =
 
 and declare_ind { name = n; params; ty; ctors; univs } i =
   (* Handle inductives predeclared as definitions (e.g., ULift with cumulativity).
-     We check if there's a cumul registration, then use per-instance registrations. *)
-  match get_predeclared_ind_as_def_some n 0 with
+     We check if there's a cumul registration for this specific instance. *)
+  match get_predeclared_ind_as_def_some n i with
   | Some (ULift_cumul, _, _) ->
     let def_name = name_for_core n i in
     let cumul_reg nm = "lean." ^ Id.to_string (name_for_core nm i) ^ ".cumul" in
