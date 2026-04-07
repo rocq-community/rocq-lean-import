@@ -2,7 +2,7 @@
 
     When this module is [Require Import]ed before [Lean Import], Lean's [ULift]
     (at instance 0) is translated as a transparent definition leveraging
-    cumulativity, rather than as an inductive type.  SProp instances (1–3)
+    cumulativity, rather than as an inductive type.  SProp instances (1-3)
     still fall through to normal inductive translation since Rocq does not
     have cumulativity between SProp and Set. *)
 
@@ -17,13 +17,13 @@ Register ULift_up_cumul as lean.ULift_up.cumul.
 Definition ULift_down_cumul@{r s|} {α : Type@{s}} (a : ULift_cumul@{r s} α) : α := a.
 Register ULift_down_cumul as lean.ULift_down.cumul.
 
-Definition ULift_rec_cumul@{motive r s|} {α : Type@{s}} {P : ULift_cumul@{r s} α → Type@{motive}}
+Definition ULift_rec_cumul@{motive r s|} {α : Type@{s}} {P : ULift_cumul@{r s} α -> Type@{motive}}
   (mk : forall (down : α), P (ULift_up_cumul down))
   (t : ULift_cumul@{r s} α) : P t
   := mk t.
 Register ULift_rec_cumul as lean.ULift_rec.cumul.
 
-Definition ULift_ind_cumul@{r s|} {α : Type@{s}} {P : ULift_cumul@{r s} α → SProp}
+Definition ULift_ind_cumul@{r s|} {α : Type@{s}} {P : ULift_cumul@{r s} α -> SProp}
   (mk : forall (down : α), P (ULift_up_cumul down))
   (t : ULift_cumul@{r s} α) : P t
   := mk t.
