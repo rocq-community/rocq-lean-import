@@ -3,6 +3,7 @@
 -I src
 
 src/Lean.v
+src/ULiftCumulativeRegistration.v
 src/g_lean.mlg
 src/lean.ml
 src/lean.mli
