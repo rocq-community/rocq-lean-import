@@ -1385,9 +1385,22 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
                  in
                  let cty' = EConstr.it_mkProd codom fields in
                  let cty' = EConstr.Unsafe.to_constr cty' in
-                 match (fields, Sorts.is_sprop sort) with
-                 | [], true -> (None, [], ctys)
-                 | _ :: _, false ->
+                 (* A recursive single-constructor inductive cannot admit
+                    eta, so the kernel rejects the primitive-record
+                    encoding. Fall through to plain Inductive in that case. *)
+                 let npars = List.length params in
+                 let is_recursive =
+                   let rec walk k c =
+                     match Constr.kind c with
+                     | Constr.Prod (_, t, body) ->
+                       (not (Vars.noccurn k t)) || walk (k + 1) body
+                     | _ -> false
+                   in
+                   walk (npars + 1) cty'
+                 in
+                 match (fields, Sorts.is_sprop sort, is_recursive) with
+                 | [], true, _ -> (None, [], ctys)
+                 | _ :: _, false, false ->
                    if
                      List.exists
                        (fun (na, _) ->
@@ -1396,8 +1409,8 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
                        fields
                    then (Some (Some [| default_proj_id |]), fields, [ cty' ])
                    else (None, [], ctys)
-                 | [], false -> (None, [], ctys)
-                 | _ :: _, true ->
+                 | [], false, _ -> (None, [], ctys)
+                 | _ :: _, true, false ->
                    if
                      List.for_all
                        (fun (na, _) ->
@@ -1405,7 +1418,8 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
                          == EConstr.ERelevance.irrelevant)
                        fields
                    then (Some (Some [| default_proj_id |]), fields, [ cty' ])
-                   else (None, [], ctys))
+                   else (None, [], ctys)
+                 | _ :: _, _, true -> (None, [], ctys))
         | _ -> (None, [], ctys)
       in
       let entry finite =
