@@ -14,3 +14,6 @@ Definition is_singleton {A} (r : RecInd A) : bool :=
   | RecInd_mk _ _ (list_nil _) => true
   | RecInd_mk _ _ (list_cons _ _ _) => false
   end.
+
+(* Propositional eta via dependent pattern matching (not definitional). *)
+Check RecInd_eta.
