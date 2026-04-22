@@ -15,5 +15,10 @@ Definition is_singleton {A} (r : RecInd A) : bool :=
   | RecInd_mk _ _ (list_cons _ _ _) => false
   end.
 
-(* Propositional eta via dependent pattern matching (not definitional). *)
+(* Imported propositional eta from Lean. *)
 Check RecInd_eta.
+
+(* Propositional eta proved directly in Rocq via destruct. *)
+Lemma RecInd_eta' {A} (x : RecInd A) :
+  match x with RecInd_mk _ v cs => RecInd_mk A v cs end = x.
+Proof. destruct x; reflexivity. Qed.
