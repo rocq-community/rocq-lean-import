@@ -9,3 +9,4 @@ anomaly_print_projections.v
 pnni.v
 ulift_no_cumul.v
 ulift_cumul.v
+inhabited_sprop.v

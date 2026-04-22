@@ -1,0 +1,107 @@
+1 #NS 0 Inhabited'
+2 #NS 1 mk
+3 #NS 0 α
+4 #NS 0 u
+1 #UP 4
+0 #ES 1
+5 #NS 0 default
+1 #EV 0
+2 #EC 1 1
+3 #EV 1
+4 #EA 2 3
+5 #EP #BD 5 1 4
+6 #EP #BI 3 0 5
+2 #US 0
+3 #UM 2 1
+7 #ES 3
+8 #EP #BD 3 0 7
+#IND 1 1 8 1 2 6 4
+6 #NS 0 Eq
+7 #NS 6 refl
+8 #NS 0 u_1
+4 #UP 8
+9 #ES 4
+9 #NS 0 a
+10 #EC 6 4
+11 #EA 10 3
+12 #EA 11 1
+13 #EA 12 1
+14 #EP #BD 9 1 13
+15 #EP #BI 3 9 14
+10 #NS 9 _@
+11 #NS 10 Init
+12 #NS 11 Prelude
+13 #NS 12 _hyg
+14 #NI 13 194
+15 #NI 13 196
+16 #ES 0
+17 #EP #BD 15 3 16
+18 #EP #BD 14 1 17
+19 #EP #BI 3 9 18
+#IND 2 6 19 1 7 15 8
+16 #NS 1 default
+17 #NS 0 self
+20 #EA 2 1
+21 #EP #BC 17 20 3
+22 #EP #BI 3 0 21
+23 #EJ 1 0 1
+24 #EL #BC 17 20 23
+25 #EL #BD 3 0 24
+#DEF 16 22 25 4
+18 #NS 1 eta
+19 #NS 0 x
+26 #EC 1 4
+27 #EA 26 1
+5 #UM 2 4
+28 #EC 6 5
+29 #EA 26 3
+30 #EA 28 29
+31 #EC 2 4
+32 #EA 31 3
+33 #EC 16 4
+34 #EA 33 3
+35 #EA 34 1
+36 #EA 32 35
+37 #EA 30 36
+38 #EA 37 1
+39 #EP #BD 19 27 38
+40 #EP #BD 3 9 39
+41 #EC 7 5
+42 #EA 41 29
+43 #EA 42 36
+44 #EL #BD 19 27 43
+45 #EL #BD 3 9 44
+#DEF 18 40 45 8
+20 #NS 0 MyProp
+#AX 20 16 
+21 #NS 0 mp
+46 #EC 20 
+#AX 21 46 
+22 #NS 0 h
+47 #EC 1 0
+48 #EA 47 46
+49 #EC 2 0
+50 #EA 49 46
+51 #EC 21 
+52 #EA 50 51
+#DEF 22 48 52 
+23 #NS 0 test
+53 #EC 16 0
+54 #EA 53 46
+55 #EC 22 
+56 #EA 54 55
+#DEF 23 46 56 
+24 #NS 0 h2
+#AX 24 48 
+25 #NS 0 test_eta
+57 #EC 6 2
+58 #EA 57 48
+59 #EC 24 
+60 #EA 54 59
+61 #EA 50 60
+62 #EA 58 61
+63 #EA 62 59
+64 #EC 18 0
+65 #EA 64 46
+66 #EA 65 59
+#DEF 25 63 66 
