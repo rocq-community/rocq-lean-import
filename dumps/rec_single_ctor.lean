@@ -1,8 +1,5 @@
-inductive list.{u} (α : Sort u)
-  | nil  : list α
-  | cons : α → list α → list α
 inductive RecInd.{u} (A : Sort u)
-  | mk : A → list (RecInd A) → RecInd A
+  | mk : A → RecInd A → RecInd A
 
 -- Definitional eta does NOT hold for RecInd
 -- Propositional eta

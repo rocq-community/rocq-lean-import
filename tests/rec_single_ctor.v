@@ -11,8 +11,7 @@ Definition root {A} (r : RecInd A) : A :=
 
 Definition is_singleton {A} (r : RecInd A) : bool :=
   match r with
-  | RecInd_mk _ _ (list_nil _) => true
-  | RecInd_mk _ _ (list_cons _ _ _) => false
+  | RecInd_mk _ _ _ => true
   end.
 
 (* Imported propositional eta from Lean. *)
