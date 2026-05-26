@@ -998,6 +998,74 @@ let mk_string char string list char_uinst mkChar s =
   let ls = mk_list list char_uinst char chars in
   Constr.(mkApp (mkConstructU ((string, 1), UVars.Instance.empty), [| ls |]))
 
+let unfold_proj_case env evd ~field ~ind ~indu ~mib ~mip ~args c =
+  let npar = mib.Declarations.mind_nparams in
+  let ntypes = Declareops.mind_ntypes mib in
+  let u = snd indu in
+  let ind_subst =
+    List.init ntypes (fun i ->
+      Constr.mkIndU ((fst ind, ntypes - i - 1), u))
+  in
+  let (ctx, cty0) = mip.Declarations.mind_nf_lc.(0) in
+  let cty_full =
+    Term.it_mkProd_or_LetIn cty0 ctx
+  in
+  let rctx, _ =
+    Term.decompose_prod_decls (Vars.substl ind_subst cty_full)
+  in
+  let ctor_ctx, _paramslet =
+    CList.chop mip.mind_consnrealdecls.(0) rctx
+  in
+  let nargs = mip.mind_consnrealdecls.(0) in
+  let ci = {
+    Constr.ci_ind = ind;
+    ci_npar = npar;
+    ci_cstr_ndecls = mip.mind_consnrealdecls;
+    ci_cstr_nargs = mip.mind_consnrealargs;
+    ci_pp_info = { style = LetStyle };
+  } in
+  let params =
+    Array.map EConstr.Unsafe.to_constr
+      (Array.sub args 0 npar)
+  in
+  let field_ty =
+    let ctor =
+      Constr.mkConstructU (((fst ind, 0), 1), u)
+    in
+    let ctor_applied =
+      Constr.mkApp (ctor, params)
+    in
+    let rec get_field_type i ty =
+      match Constr.kind ty with
+      | Constr.Prod (_, t, rest) ->
+        if i = field then t
+        else get_field_type (i + 1) (Vars.subst1 invalid rest)
+      | _ -> assert false
+    in
+    let ctor_ty =
+      Retyping.get_type_of env evd
+        (EConstr.of_constr ctor_applied)
+    in
+    let ctor_ty = EConstr.Unsafe.to_constr
+      (Reductionops.whd_all env evd ctor_ty)
+    in
+    get_field_type 0 ctor_ty
+  in
+  let case_relev = mip.mind_relevance in
+  let self_annot =
+    Context.make_annot Name.Anonymous mip.mind_relevance
+  in
+  let ret_ty = Vars.lift 1 field_ty in
+  let p = ([| self_annot |], ret_ty) in
+  let branch_nas =
+    Array.of_list
+      (List.rev_map Context.Rel.Declaration.get_annot ctor_ctx)
+  in
+  let branch = (branch_nas, Constr.mkRel (nargs - field)) in
+  Constr.mkCase
+    (ci, u, params, (p, case_relev),
+     Constr.NoInvert, c, [| branch |])
+
 let lcnt = ref 0
 
 let line_msg name =
@@ -1067,72 +1135,7 @@ let rec to_constr =
                   (* unfolded?? *)
                   mkProj (Projection.make p false, r, c)
                 | NotRecord | FakeRecord ->
-                  let npar = mib.mind_nparams in
-                  let ntypes = Declareops.mind_ntypes mib in
-                  let u = snd indu in
-                  let ind_subst =
-                    List.init ntypes (fun i ->
-                      Constr.mkIndU ((fst ind, ntypes - i - 1), u))
-                  in
-                  let (ctx, cty0) = mip.mind_nf_lc.(0) in
-                  let cty_full =
-                    Term.it_mkProd_or_LetIn cty0 ctx
-                  in
-                  let rctx, _ =
-                    Term.decompose_prod_decls (Vars.substl ind_subst cty_full)
-                  in
-                  let ctor_ctx, _paramslet =
-                    CList.chop mip.mind_consnrealdecls.(0) rctx
-                  in
-                  let nargs = mip.mind_consnrealdecls.(0) in
-                  let ci = {
-                    ci_ind = ind;
-                    ci_npar = npar;
-                    ci_cstr_ndecls = mip.mind_consnrealdecls;
-                    ci_cstr_nargs = mip.mind_consnrealargs;
-                    ci_pp_info = { style = LetStyle };
-                  } in
-                  let params =
-                    Array.map EConstr.Unsafe.to_constr
-                      (Array.sub args 0 npar)
-                  in
-                  let field_ty =
-                    let ctor =
-                      Constr.mkConstructU (((fst ind, 0), 1), u)
-                    in
-                    let ctor_applied =
-                      Constr.mkApp (ctor, params)
-                    in
-                    let rec get_field_type i ty =
-                      match Constr.kind ty with
-                      | Constr.Prod (_, t, rest) ->
-                        if i = field then t
-                        else get_field_type (i + 1) (Vars.subst1 invalid rest)
-                      | _ -> assert false
-                    in
-                    let ctor_ty =
-                      Retyping.get_type_of env evd
-                        (EConstr.of_constr ctor_applied)
-                    in
-                    let ctor_ty = EConstr.Unsafe.to_constr
-                      (Reductionops.whd_all env evd ctor_ty)
-                    in
-                    get_field_type 0 ctor_ty
-                  in
-                  let case_relev = mip.mind_relevance in
-                  let self_annot =
-                    Context.make_annot Name.Anonymous mip.mind_relevance
-                  in
-                  let ret_ty = Vars.lift 1 field_ty in
-                  let p = ([| self_annot |], ret_ty) in
-                  let branch_nas =
-                    Array.of_list
-                      (List.rev_map Context.Rel.Declaration.get_annot ctor_ctx)
-                  in
-                  let branch = (branch_nas, mkRel (nargs - field)) in
-                  Constr.mkCase
-                    (ci, u, params, (p, case_relev),
-                     NoInvert, c, [| branch |])
+                  unfold_proj_case env evd ~field ~ind ~indu ~mib ~mip ~args c
               end
             | _ ->
               (* Type is not an inductive (e.g., transparent cumulative ULift).
