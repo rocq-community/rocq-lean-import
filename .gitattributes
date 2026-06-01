@@ -1,1 +1,2 @@
 dumps/mathlib.out.zip filter=lfs diff=lfs merge=lfs -text
+dumps/*.ndjson.zip filter=lfs diff=lfs merge=lfs -text

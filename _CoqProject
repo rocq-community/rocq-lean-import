@@ -10,6 +10,10 @@ src/lean.mli
 src/leanExpr.mli
 src/leanName.ml
 src/leanName.mli
+src/leanParseShared.ml
+src/leanParseShared.mli
 src/leanParse.ml
 src/leanParse.mli
+src/leanParseNdjson.ml
+src/leanParseNdjson.mli
 src/lean_import.mlpack
