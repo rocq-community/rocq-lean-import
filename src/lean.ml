@@ -998,7 +998,9 @@ let mk_string char string list char_uinst mkChar s =
   let ls = mk_list list char_uinst char chars in
   Constr.(mkApp (mkConstructU ((string, 1), UVars.Instance.empty), [| ls |]))
 
-let unfold_proj_case env evd ~field ~ind ~indu ~mib ~mip ~args c =
+(* [c] has type [indu] applied to [args] *)
+let unfold_proj_case env evd ~field ~indu ~mib ~mip ~args c =
+  let ind = fst indu in
   let npar = mib.Declarations.mind_nparams in
   let ntypes = Declareops.mind_ntypes mib in
   let u = snd indu in
@@ -1135,7 +1137,7 @@ let rec to_constr =
                   (* unfolded?? *)
                   mkProj (Projection.make p false, r, c)
                 | NotRecord | FakeRecord ->
-                  unfold_proj_case env evd ~field ~ind ~indu ~mib ~mip ~args c
+                  unfold_proj_case env evd ~field ~indu ~mib ~mip ~args c
               end
             | _ ->
               (* Type is not an inductive (e.g., transparent cumulative ULift).
