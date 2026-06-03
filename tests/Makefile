@@ -1,12 +1,12 @@
 MAKE_OPTS:= --no-builtin-rules
 
-# init/stdlib NDJSON dumps are committed compressed (git-LFS); decompress them
+# Large NDJSON dumps are committed compressed (git-LFS); decompress them
 # (once, if missing) before building the tests that import them.
 DUMPS := ../dumps
 
 .PHONY: submake
 submake: Makefile.rocq
-	@for f in init stdlib; do \
+	@for f in init stdlib pnni logic quot; do \
 	  test -f $(DUMPS)/$$f.ndjson || \
 	    ( cd $(DUMPS) && python3 -c "import zipfile; zipfile.ZipFile('$$f.ndjson.zip').extractall('.')" ); \
 	done
