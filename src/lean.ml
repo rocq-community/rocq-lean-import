@@ -998,6 +998,59 @@ let mk_string char string list char_uinst mkChar s =
   let ls = mk_list list char_uinst char chars in
   Constr.(mkApp (mkConstructU ((string, 1), UVars.Instance.empty), [| ls |]))
 
+(* [c] has type [indu] applied to [args] *)
+let unfold_proj_case env evd ~field ~indu ~mib ~mip ~args c =
+  let ind = fst indu in
+  let npar = mib.Declarations.mind_nparams in
+  let ntypes = Declareops.mind_ntypes mib in
+  let u = snd indu in
+  let ind_subst =
+    List.init ntypes (fun i -> Constr.mkIndU ((fst ind, ntypes - i - 1), u))
+  in
+  let ctx, cty0 = mip.Declarations.mind_nf_lc.(0) in
+  let cty_full = Term.it_mkProd_or_LetIn cty0 ctx in
+  let rctx, _ = Term.decompose_prod_decls (Vars.substl ind_subst cty_full) in
+  let ctor_ctx, _paramslet = CList.chop mip.mind_consnrealdecls.(0) rctx in
+  let nargs = mip.mind_consnrealdecls.(0) in
+  let ci =
+    {
+      Constr.ci_ind = ind;
+      ci_npar = npar;
+      ci_cstr_ndecls = mip.mind_consnrealdecls;
+      ci_cstr_nargs = mip.mind_consnrealargs;
+      ci_pp_info = { style = LetStyle };
+    }
+  in
+  let params = Array.map EConstr.Unsafe.to_constr (Array.sub args 0 npar) in
+  let field_ty =
+    let ctor = Constr.mkConstructU (((fst ind, 0), 1), u) in
+    let ctor_applied = Constr.mkApp (ctor, params) in
+    let rec get_field_type i ty =
+      match Constr.kind ty with
+      | Constr.Prod (_, t, rest) ->
+        if i = field then t
+        else get_field_type (i + 1) (Vars.subst1 invalid rest)
+      | _ -> assert false
+    in
+    let ctor_ty =
+      Retyping.get_type_of env evd (EConstr.of_constr ctor_applied)
+    in
+    let ctor_ty =
+      EConstr.Unsafe.to_constr (Reductionops.whd_all env evd ctor_ty)
+    in
+    get_field_type 0 ctor_ty
+  in
+  let case_relev = mip.mind_relevance in
+  let self_annot = Context.make_annot Name.Anonymous mip.mind_relevance in
+  let ret_ty = Vars.lift 1 field_ty in
+  let p = ([| self_annot |], ret_ty) in
+  let branch_nas =
+    Array.of_list (List.rev_map Context.Rel.Declaration.get_annot ctor_ctx)
+  in
+  let branch = (branch_nas, Constr.mkRel (nargs - field)) in
+  Constr.mkCase
+    (ci, u, params, (p, case_relev), Constr.NoInvert, c, [| branch |])
+
 let lcnt = ref 0
 
 let line_msg name =
@@ -1067,15 +1120,7 @@ let rec to_constr =
                   (* unfolded?? *)
                   mkProj (Projection.make p false, r, c)
                 | NotRecord | FakeRecord ->
-                  if
-                    mip.mind_relevance
-                    == EConstr.Unsafe.to_relevance EConstr.ERelevance.irrelevant
-                  then
-                    CErrors.user_err
-                      Pp.(str "TODO projection for non record Prop inductive")
-                  else
-                    CErrors.user_err
-                      Pp.(str "cannot project non record " ++ N.pp lean_ind)
+                  unfold_proj_case env evd ~field ~indu ~mib ~mip ~args c
               end
             | _ ->
               (* Type is not an inductive (e.g., transparent cumulative ULift).
@@ -1385,9 +1430,22 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
                  in
                  let cty' = EConstr.it_mkProd codom fields in
                  let cty' = EConstr.Unsafe.to_constr cty' in
-                 match (fields, Sorts.is_sprop sort) with
-                 | [], true -> (None, [], ctys)
-                 | _ :: _, false ->
+                 (* A recursive single-constructor inductive cannot admit
+                    eta, so the kernel rejects the primitive-record
+                    encoding. Fall through to plain Inductive in that case. *)
+                 let npars = List.length params in
+                 let is_recursive =
+                   let rec walk k c =
+                     match Constr.kind c with
+                     | Constr.Prod (_, t, body) ->
+                       (not (Vars.noccurn k t)) || walk (k + 1) body
+                     | _ -> false
+                   in
+                   walk (npars + 1) cty'
+                 in
+                 match (fields, Sorts.is_sprop sort, is_recursive) with
+                 | [], true, _ -> (None, [], ctys)
+                 | _ :: _, false, false ->
                    if
                      List.exists
                        (fun (na, _) ->
@@ -1396,8 +1454,8 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
                        fields
                    then (Some (Some [| default_proj_id |]), fields, [ cty' ])
                    else (None, [], ctys)
-                 | [], false -> (None, [], ctys)
-                 | _ :: _, true ->
+                 | [], false, _ -> (None, [], ctys)
+                 | _ :: _, true, false ->
                    if
                      List.for_all
                        (fun (na, _) ->
@@ -1405,7 +1463,8 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
                          == EConstr.ERelevance.irrelevant)
                        fields
                    then (Some (Some [| default_proj_id |]), fields, [ cty' ])
-                   else (None, [], ctys))
+                   else (None, [], ctys)
+                 | _ :: _, _, true -> (None, [], ctys))
         | _ -> (None, [], ctys)
       in
       let entry finite =
