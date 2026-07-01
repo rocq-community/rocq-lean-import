@@ -719,8 +719,8 @@ let get_predeclared_def defn n i =
     | exception _ -> None
   else None
 
-type predeclared_ind_kind = Eq | Nat | Nat_le | Or | And | Fin | UInt32 | Char
-type predeclared_def_kind = UInt32_size | Nat_isValidChar
+type predeclared_ind_kind = Eq | Nat | Nat_le | Or | And | Fin | UInt32 | BitVec | Char
+type predeclared_def_kind = UInt32_size | Add | Mult | Pow | Nat_isValidChar
 type predeclared_ind_as_def_kind = ULift_cumul
 
 let get_predeclared_cnames (k : predeclared_ind_kind) n =
@@ -731,7 +731,8 @@ let get_predeclared_cnames (k : predeclared_ind_kind) n =
   | Or -> [ N.append n "inl"; N.append n "inr" ]
   | And -> [ N.append n "intro" ]
   | Fin -> [ N.append n "mk" ]
-  | UInt32 -> [ N.append n "mk" ]
+  | UInt32 -> [ N.append n "ofBitVec" ]
+  | BitVec -> [ N.append n "ofFin" ]
   | Char -> [ N.append n "mk" ]
 
 let get_predeclared_ind_any n i =
@@ -746,6 +747,7 @@ let get_predeclared_ind_any n i =
       (And, [ "And" ]);
       (Fin, [ "Fin" ]);
       (UInt32, [ "UInt32" ]);
+      (BitVec, [ "BitVec" ]);
       (Char, [ "Char" ]);
     ]
 
@@ -779,6 +781,9 @@ let get_predeclared_def_any n i =
       get_predeclared_def defh n i |> Option.map (fun x -> (defk, defh, x)))
     [
       (UInt32_size, [ "UInt32"; "size" ]);
+      (Add, [ "Nat"; "add" ]);
+      (Mult, [ "Nat"; "mul" ]);
+      (Pow, [ "Nat" ; "pow" ]);
       (Nat_isValidChar, [ "Nat"; "isValidChar" ]);
     ]
 
@@ -1233,7 +1238,7 @@ and ensure_exists n i =
 and declare_def { name = n; ty; body; univs; } i =
   let ref, algs =
     match get_predeclared_def_some n i with
-    | Some ((UInt32_size | Nat_isValidChar), _, (def_name, c)) ->
+    | Some ((UInt32_size | Add | Mult | Pow | Nat_isValidChar), _, (def_name, c)) ->
       (* Hack to let the user predeclare some constants
          TODO make a more general Register-like API? *)
       Feedback.msg_info Pp.(Id.print def_name ++ str " is predeclared");
@@ -1357,7 +1362,7 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
       in
       (mind, [], ind_name, [ cname ], univs, squashy)
     | Some
-        ( ((Nat | Nat_le | Or | And | Fin | UInt32 | Char) as k),
+        ( ((Nat | Nat_le | Or | And | Fin | UInt32 | BitVec | Char) as k),
           _,
           (ind_name, mind) ) ->
       (* Hack to let the user predeclare various types before running Lean Import

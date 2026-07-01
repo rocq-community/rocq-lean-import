@@ -237,14 +237,41 @@ Number Notation Nat Nat_of_num_uint Nat_to_num_uint (abstract after 5000) : Nat_
 (* Tell the kernel to unfold these wrappers early, to speed things up *)
 #[global] Strategy -10000 [Nat_of_num_uint Nat_to_num_uint].
 
+Fixpoint Nat_add n m :=
+  match m with
+  | 0 => n
+  | Nat_succ p => Nat_succ (Nat_add n p)
+  end.
+
+Fixpoint Nat_mul n m :=
+  match m with
+  | 0 => 0
+  | Nat_succ p => Nat_add (Nat_mul n p) n
+  end.
+
+Fixpoint Nat_pow n m :=
+  match m with
+    | 0 => 1
+    | Nat_succ m => Nat_mul (Nat_pow n m) n
+  end.
+
+Register Nat_add as lean.Nat_add.
+Register Nat_mul as lean.Nat_mul.
+Register Nat_pow as lean.Nat_pow.
+
 #[local] Set Warnings "-abstract-large-number".
 Definition UInt32_size : Nat := 0x100000000%Nat.
 Register UInt32_size as lean.UInt32_size.
 
 Record Fin@{} (n : Nat) := Fin_mk { val : Nat; isLt : (val < n)%Nat }.
 Register Fin as lean.Fin.
-Record UInt32@{} := UInt32_mk { val0 : Fin UInt32_size }.
+
+Record BitVec@{} (w : Nat) := BitVec_ofFin { toFin : Fin (Nat_pow 2 w) }.
+Register BitVec as lean.BitVec.
+
+Record UInt32@{} := UInt32_ofBitVec { toBitVec : BitVec 32 }.
 Register UInt32 as lean.UInt32.
+Register toBitVec as lean.toBitVec.
 
 
 Section strings.
@@ -295,16 +322,50 @@ Section strings.
     := n < 0xd800 \/ (0xdfff < n /\ n < 0x110000).
 
   Record Char@{} := Char_mk
-  { val1 : UInt32; valid : Nat_isValidChar val1.(val0).(val _) }.
+  { val1 : UInt32; valid : Nat_isValidChar val1.(toBitVec).(toFin _).(val _) }.
 
   Definition check_N_isValidChar (n : N) : bool
     := ((n <? 0xd800) || ((0xdfff <? n) && (n <? 0x110000)))%N%bool.
 
-  Definition Fin_mk_N (n : N) (val : N) (isLt : (val <? n)%N = true) : Fin (Nat_of_N n)
-    := Fin_mk (Nat_of_N n) (Nat_of_N val) (Nat_lt_to_N val n isLt).
+  Lemma Nat_nat_add n m : Nat_of_nat (n + m) = Nat_add (Nat_of_nat n) (Nat_of_nat m).
+  Proof.
+    rewrite Nat.add_comm.
+    induction m. 
+    - reflexivity.
+    - simpl. now f_equal.
+  Qed.
+
+  Lemma Nat_nat_mul n m : Nat_of_nat (n * m) = Nat_mul (Nat_of_nat n) (Nat_of_nat m).
+  Proof.
+    rewrite Nat.mul_comm.
+    induction m; simpl.
+    - reflexivity. 
+    - rewrite Nat.add_comm, Nat_nat_add. now f_equal.
+  Qed. 
+  
+  Lemma Nat_nat_pow n m : Nat_of_nat (n ^ m) = Nat_pow (Nat_of_nat n) (Nat_of_nat m).
+  Proof.
+    induction m; simpl.
+    - reflexivity. 
+    - rewrite Nat.mul_comm, Nat_nat_mul. now f_equal. 
+  Qed.
+  
+  Lemma Nat_pow_comm (n : N) : Nat_of_N (2 ^ n) = Nat_pow 2 (Nat_of_N n).
+  Proof.
+    unfold Nat_of_N. rewrite N2Nat.inj_pow.
+    eapply Nat_nat_pow. 
+  Qed.
+  
+  Lemma Nat_lt_to_N_pow (n : N) (m : N) : (n <? 2 ^ m)%N = true -> Nat_of_N n < Nat_pow 2 (Nat_of_N m).
+  Proof.
+    rewrite <- Nat_pow_comm. eapply Nat_lt_to_N.
+  Qed.
+
+  Definition Fin_mk_N_pow (n : N) (val : N) (isLt : (val <? 2 ^ n)%N = true) : Fin (Nat_pow 2 (Nat_of_N n))
+    := Fin_mk (Nat_pow 2 (Nat_of_N n)) (Nat_of_N val) (Nat_lt_to_N_pow val n isLt).
 
   Definition UInt32_mk_N (val : N) (isLt : (val <? 0x100000000)%N = true) : UInt32
-    := UInt32_mk (Fin_mk_N 0x100000000 val isLt).
+    := UInt32_ofBitVec (BitVec_ofFin 32 (Fin_mk_N_pow 32 val isLt)).
 
   Lemma Nat_isValidChar_mk_N (n : N) (isLt : check_N_isValidChar n = true)
     : Nat_isValidChar (Nat_of_N n).
@@ -397,3 +458,8 @@ End strings.
 Register Nat_isValidChar as lean.Nat_isValidChar.
 Register Char as lean.Char.
 Register reflective_Char_mk_prim as lean.Char.mk.reflective_prim.
+
+Goal forall a n, Nat_pow a (Nat_succ n) = Nat_mul (Nat_pow a n) a.
+Proof.
+  intros. simpl. reflexivity.
+Abort.
