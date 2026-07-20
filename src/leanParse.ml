@@ -106,11 +106,10 @@ let fix_ctor ind nparams ty =
 let as_univ state s = RRange.get state.univs (int_of_string s)
 
 let parse_hexa c =
-  if 'A' <= c && c <= 'F' then int_of_char c - int_of_char 'A'
-  else begin
-    assert ('0' <= c && c <= '9');
-    int_of_char c - int_of_char '0'
-  end
+  if '0' <= c && c <= '9' then int_of_char c - int_of_char '0'
+  else if 'A' <= c && c <= 'F' then 10 + int_of_char c - int_of_char 'A'
+  else if 'a' <= c && c <= 'f' then 10 + int_of_char c - int_of_char 'a'
+  else CErrors.user_err Pp.(str "Invalid hexadecimal digit in string literal")
 
 let parse_char s =
   assert (String.length s = 2);
