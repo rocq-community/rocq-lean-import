@@ -310,6 +310,10 @@ type uconv = {
   levels : Level.t Universe.Map.t;
       (** Map from algebraic universes to levels (only levels representing an
           algebraic) *)
+  direct : Level.Set.t;
+      (** Named Lean levels that occur directly in universe instances. Levels
+          that only occur below an algebraic successor do not need to be exposed
+          as parameters of the translated declaration. *)
   graph : UGraph.t;
 }
 
@@ -384,7 +388,7 @@ let rec level_of_sets uconv n =
 
 let to_univ_level u uconv =
   match Universe.level u with
-  | Some l -> (uconv, l)
+  | Some l -> ({ uconv with direct = Level.Set.add l uconv.direct }, l)
   | None ->
     (match is_sets u with
     | Some n -> level_of_sets uconv n
@@ -443,9 +447,21 @@ let height n body =
 type instantiation = {
   ref : GlobRef.t;
   algs : Universe.t list;
-      (** For each extra universe, produce the algebraic it corresponds to (the
-          initial universes are replaced by the appropriate Var) *)
+      (** Full Rocq universe instance as algebraic universes over the Lean
+          universe parameters. *)
 }
+
+let universe_var i = Universe.make (Level.var i)
+let identity_algs n = List.init n universe_var
+
+let non_sprop_univ_count nunivs i =
+  let rec loop j acc =
+    if j = nunivs then acc
+    else
+      let acc = if i land (1 lsl j) = 0 then acc + 1 else acc in
+      loop (j + 1) acc
+  in
+  loop 0 0
 
 (*
 Lean classifies inductives in the following way:
@@ -583,6 +599,7 @@ let start_uconv univs i =
       graph = Global.universes ();
       map = N.Map.empty;
       levels = Universe.Map.empty;
+      direct = Level.Set.empty;
     }
   in
   let uconv, set1 = level_of_sets uconv 1 in
@@ -602,36 +619,30 @@ let start_uconv univs i =
   in
   aux uconv i univs
 
-let rec make_unames univs ounivs =
-  match (univs, ounivs) with
-  | _, [] ->
-    List.map (fun u -> Name (Id.of_string_soft (Level.to_string u))) univs
-  | _u :: univs, o :: ounivs -> N.to_name o :: make_unames univs ounivs
-  | [], _ :: _ -> assert false
-
-let univ_entry_gen { map; levels; graph } ounivs =
-  let ounivs =
+let univ_entry_gen { map; levels; direct; graph } ounivs =
+  let original_pairs =
     CList.map_filter
       (fun u ->
         let v = N.Map.get u map in
         match v with LSProp -> None | Level v -> Some (u, v))
       ounivs
   in
-  let ounivs, univs = List.split ounivs in
-  let univs, algs =
-    if Universe.Map.is_empty levels then (univs, [])
-    else
-      let univs = List.rev univs in
-      (* add the new levels to univs, add constraints between maxes
-         (eg max(a,b) <= max(a,b,c)) *)
-      let univs, algs =
-        Universe.Map.fold
-          (fun alg l (univs, algs) -> (l :: univs, alg :: algs))
-          levels (univs, [])
-      in
-      let univs = List.rev univs in
-      (univs, algs)
+  let original_levels = List.map snd original_pairs in
+  let original_instance =
+    Instance.of_array ([||], Array.of_list original_levels)
   in
+  let original_subst = snd (make_instance_subst original_instance) in
+  let direct_pairs =
+    List.filter (fun (_, l) -> Level.Set.mem l direct) original_pairs
+  in
+  let extra_pairs =
+    Universe.Map.fold (fun alg l acc -> (alg, l) :: acc) levels [] |> List.rev
+  in
+  let decl_pairs =
+    List.map (fun (u, l) -> (Some u, Universe.make l, l)) direct_pairs
+    @ List.map (fun (alg, l) -> (None, alg, l)) extra_pairs
+  in
+  let univs = List.map (fun (_, _, l) -> l) decl_pairs in
   let uset =
     List.fold_left (fun kept l -> Level.Set.add l kept) Level.Set.empty univs
   in
@@ -643,11 +654,26 @@ let univ_entry_gen { map; levels; graph } ounivs =
       (fun (a, _, b) -> Level.Set.mem a uset || Level.Set.mem b uset)
       csts
   in
-  let unames = { quals = [||]; univs = Array.of_list (make_unames univs ounivs)} in
-  let univs = Instance.of_array ([||], Array.of_list univs) in
-  let uctx = UContext.make unames (univs, PConstraints.of_univs csts) in
-  let subst = snd (make_instance_subst univs) in
-  let algs = List.rev_map (subst_univs_level_universe subst) algs in
+  let unames =
+    {
+      quals = [||];
+      univs =
+        Array.of_list
+          (List.map
+             (function
+               | Some u, _, _ -> N.to_name u
+               | None, _, l -> Name (Id.of_string_soft (Level.to_string l)))
+             decl_pairs);
+    }
+  in
+  let univs_inst = Instance.of_array ([||], Array.of_list univs) in
+  let uctx = UContext.make unames (univs_inst, PConstraints.of_univs csts) in
+  let algs =
+    List.map
+      (fun (_, alg, _) ->
+        simplify_universe (subst_univs_level_universe original_subst alg))
+      decl_pairs
+  in
   (uctx, algs)
 
 let univ_entry a b =
@@ -1204,12 +1230,11 @@ and instantiate n univs uconv =
     in
     Some u
   in
-  let extra =
+  let univs =
     List.map
       (fun alg -> simplify_universe (UnivSubst.subst_univs_universe subst alg))
       inst.algs
   in
-  let univs = List.concat [ univs; extra ] in
   let uconv, univs =
     CList.fold_left_map (fun uconv u -> to_univ_level u uconv) uconv univs
   in
@@ -1306,19 +1331,24 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
     Feedback.msg_info Pp.(Id.print def_name ++ str " is predeclared (cumulative)");
     (* The Rocq cumul definitions take four universes [r s s1 rs1] where
        [s1] stands for Lean's [s+1] and [rs1] for Lean's [max(r+1, s+1)].
-       Lean provides two universes [r; s], so we supply two [algs] that
-       synthesise the missing two on every use.  For [ULift.rec] at scheme
-       j = 2*i (motive non-SProp), Lean also provides [motive] as the first
-       universe, shifting [r] and [s] to positions 1 and 2 in [Level.var].
-       For [ULift.rec] at j = 2*i+1 (motive SProp), [motive] is filtered
-       out by [int_of_univs] so the indices match the non-rec case. *)
+       Lean provides two universes [r; s], so the Rocq instance is represented
+       by four algebraic universes over the Lean instance.  For [ULift.rec] at
+       scheme j = 2*i (motive non-SProp), Lean also provides [motive] as the
+       first universe, shifting [r] and [s] to positions 1 and 2 in [Level.var].
+       For [ULift.rec] at j = 2*i+1 (motive SProp), [motive] is filtered out by
+       [int_of_univs] so the indices match the non-rec case. *)
     let algs_of r_idx s_idx =
       let r = Universe.make (Level.var r_idx) in
       let s = Universe.make (Level.var s_idx) in
-      [ Universe.super s; Universe.sup (Universe.super r) (Universe.super s) ]
+      [
+        r;
+        s;
+        Universe.super s;
+        Universe.sup (Universe.super r) (Universe.super s);
+      ]
     in
     let algs_2 = algs_of 0 1 in
-    let algs_rec = algs_of 1 2 in
+    let algs_rec = universe_var 0 :: algs_of 1 2 in
     let ulift_ref = Rocqlib.lib_ref (cumul_reg n) in
     let inst = { ref = ulift_ref; algs = algs_2 } in
     add_declared n i inst;
@@ -1355,7 +1385,12 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
         | 1 -> UContext.empty
         | _ -> assert false
       in
-      (mind, [], ind_name, [ cname ], univs, squashy)
+      ( mind,
+        identity_algs (non_sprop_univ_count 1 i),
+        ind_name,
+        [ cname ],
+        univs,
+        squashy )
     | Some
         ( ((Nat | Nat_le | Or | And | Fin | UInt32 | Char) as k),
           _,
@@ -1607,7 +1642,7 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
     in
     let algs =
       if sort = SchemeSProp then algs
-      else List.map (UnivSubst.subst_univs_universe liftu) algs
+      else universe_var 0 :: List.map (UnivSubst.subst_univs_universe liftu) algs
     in
     let elim = { ref = elim; algs } in
     let j =
@@ -1729,7 +1764,8 @@ let declare_quot quot_name =
               ^ if i = 0 then "" else "_inst" ^ string_of_int i
             in
             let ref = Rocqlib.lib_ref reg in
-            let () = add_declared lean i { ref; algs = [] } in
+            let algs = identity_algs (non_sprop_univ_count nunivs i) in
+            let () = add_declared lean i { ref; algs } in
             loop (i + 1)
         in
         loop 0)
