@@ -302,7 +302,7 @@ let to_universe map u =
 
 (** Map from [n] to the global level standing for [Set+n] (not including n=0).
 *)
-let sets : Level.t Int.Map.t ref =
+let sets : Level.t Int.Map.t Summary.Ref.t =
   Summary.ref ~name:"lean-set-surrogates" Int.Map.empty
 
 type uconv = {
@@ -367,6 +367,7 @@ let is_sets u =
 
 (** Find or add a global level for Set+n *)
 let rec level_of_sets uconv n =
+  let open Summary.Ref in
   if n = 0 then (uconv, Level.set)
   else
     try (uconv, Int.Map.find n !sets)
@@ -422,6 +423,7 @@ let height_cache = Summary.ref ~name:"lean-heights" N.Map.empty
 
 let rec height = function
   | Const (c, _) ->
+    let open Summary.Ref in
     (try N.Map.find c !height_cache + 1
      with Not_found ->
        (* non constant, recursor, or just skipped *)
@@ -433,6 +435,7 @@ let rec height = function
   | Nat _ | String _ -> 0
 
 let height n body =
+  let open Summary.Ref in
   match N.Map.find_opt n !height_cache with
   | Some h -> h
   | None ->
@@ -636,7 +639,7 @@ let univ_entry_gen { map; levels; graph } ounivs =
     List.fold_left (fun kept l -> Level.Set.add l kept) Level.Set.empty univs
   in
   let kept = Level.Set.add Level.set uset in
-  let kept = Int.Map.fold (fun _ -> Level.Set.add) !sets kept in
+  let kept = Int.Map.fold (fun _ -> Level.Set.add) Summary.Ref.(!sets) kept in
   let csts = UGraph.constraints_for ~kept graph in
   let csts =
     UnivConstraints.filter
@@ -802,15 +805,16 @@ let nat_double = "Nat_double"
     expect small instance lengths (experimentally at most 4 in the stdlib) so we
     represent instantiations as bit fields, bit n is 1 iff universe n is
     instantiated by SProp. *)
-let declared : instantiation Int.Map.t N.Map.t ref =
+let declared : instantiation Int.Map.t N.Map.t Summary.Ref.t =
   Summary.ref ~name:"lean-declared-instances" N.Map.empty
 
-let entries : entry N.Map.t ref = Summary.ref ~name:"lean-entries" N.Map.empty
+let entries : entry N.Map.t Summary.Ref.t = Summary.ref ~name:"lean-entries" N.Map.empty
 
-let squash_info : squashy N.Map.t ref =
+let squash_info : squashy N.Map.t Summary.Ref.t =
   Summary.ref ~name:"lean-squash-info" N.Map.empty
 
 let add_declared n i inst =
+  let open Summary.Ref in
   declared :=
     N.Map.update n
       (function
@@ -1217,6 +1221,7 @@ and instantiate n univs uconv =
   (uconv, Constr.mkRef (inst.ref, u))
 
 and ensure_exists n i =
+  let open Summary.Ref in
   try !declared |> N.Map.find n |> Int.Map.find i
   with Not_found ->
     (* TODO can we end up asking for a ctor or eliminator before
@@ -1365,7 +1370,7 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
       (* this case is for the ones without universes*)
       Feedback.msg_info Pp.(Id.print ind_name ++ str " is predeclared");
       let cnames = get_predeclared_cnames k n in
-      let squashy = N.Map.get n !squash_info in
+      let squashy = N.Map.get n Summary.Ref.(!squash_info) in
       (mind, [], ind_name, cnames, UContext.empty, squashy)
     | None ->
       let uconv = start_uconv univs i in
@@ -1486,7 +1491,7 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
           mind_entry_variance = None;
         }
       in
-      let squashy = N.Map.get n !squash_info in
+      let squashy = N.Map.get n Summary.Ref.(!squash_info) in
       let coq_squashes =
         if squashy.maybe_prop then coq_squashes graph (entry Finite) else false
       in
@@ -1708,6 +1713,7 @@ let squashify { name = n; params; ty; ctors; univs } =
       { maybe_prop = true; always_prop; lean_squashes }
 
 let squashify ind =
+  let open Summary.Ref in
   let s = squashify ind in
   squash_info := N.Map.add ind.name s !squash_info
 
@@ -1784,6 +1790,7 @@ let entry_name = function
 | Quot name | Def { name } | Ax { name } | Ind { name } -> name
 
 let add_entry entry =
+  let open Summary.Ref in
   let () =
     match entry with
     | Quot quot_name -> declare_quot quot_name
@@ -1809,6 +1816,7 @@ type input_state = {
 }
 
 let finish state =
+  let open Summary.Ref in
   let max_univs, cnt =
     N.Map.fold
       (fun _ entry (m, cnt) ->
@@ -1969,6 +1977,7 @@ let rec do_input state ~from ~until ch =
 let pstate = Summary.ref ~name:"lean-parse-state" LeanParse.empty_state
 
 let lean_obj =
+  let open Summary.Ref in
   let cache (pstatev, setsv, declaredv, entriesv, squash_infov, heightv) =
     pstate := pstatev;
     sets := setsv;
@@ -1988,7 +1997,8 @@ let lean_obj =
     }
 
 let import ~from ~until f =
-  lcnt := 1;
+  let open Summary.Ref in
+  Stdlib.(lcnt := 1);
   (* silence the definition messages from Coq *)
   let { pstate = pstatev } =
     Flags.silently (fun () ->
