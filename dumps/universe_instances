@@ -1,0 +1,72 @@
+1 #NS 0 UniverseBox
+2 #NS 0 u
+3 #NS 0 v
+1 #UP 2
+2 #UP 3
+4 #NS 0 α
+3 #US 1
+0 #ES 3
+4 #UM 3 2
+5 #US 4
+1 #ES 5
+2 #EP #BD 4 0 1
+#AX 1 2 2 3
+5 #NS 0 Nat
+6 #US 0
+3 #ES 6
+6 #NS 5 zero
+7 #NS 5 succ
+4 #EC 5
+8 #NS 0 n
+5 #EP #BD 8 4 4
+9 #NS 5 rec
+10 #NS 0 motive
+11 #NS 0 t
+6 #ES 1
+7 #EP #BD 11 4 6
+12 #NS 0 zero
+8 #EV 0
+9 #EC 6
+10 #EA 8 9
+13 #NS 0 succ
+14 #NS 0 n_ih
+11 #EV 2
+12 #EA 11 8
+13 #EV 3
+14 #EC 7
+15 #EV 1
+16 #EA 14 15
+17 #EA 13 16
+18 #EP #BD 14 12 17
+19 #EP #BD 8 4 18
+20 #EA 13 8
+21 #EP #BD 11 4 20
+22 #EP #BD 13 19 21
+23 #EP #BD 12 10 22
+24 #EP #BI 10 7 23
+25 #EL #BD 13 19 15
+26 #EL #BD 12 10 25
+27 #EL #BD 10 7 26
+28 #EA 15 8
+29 #EC 9 1
+30 #EA 29 13
+31 #EA 30 11
+32 #EA 31 15
+33 #EA 32 8
+34 #EA 28 33
+35 #EL #BD 8 4 34
+36 #EL #BD 13 19 35
+37 #EL #BD 12 10 36
+38 #EL #BD 10 7 37
+#IND 0 5 3 2 6 4 7 5
+15 #NS 0 universeValue
+39 #EC 1 1 2
+40 #EA 39 8
+41 #EP #BD 4 0 40
+#AX 15 41 2 3
+16 #NS 0 universeValueType
+42 #EC 1 0 6
+43 #EA 42 4
+44 #EC 15 0 6
+45 #EA 44 4
+#DEF 16 43 45
