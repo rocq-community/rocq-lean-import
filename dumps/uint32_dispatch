@@ -1,0 +1,77 @@
+1 #NS 0 Nat
+2 #NS 1 zero
+3 #NS 1 succ
+4 #NS 0 Fin
+5 #NS 4 mk
+6 #NS 0 BitVec
+7 #NS 6 ofFin
+8 #NS 0 UInt32
+9 #NS 8 mk
+10 #NS 0 make_uint32_bitvec
+11 #NS 0 _
+12 #NS 0 n
+13 #NS 0 w
+14 #NS 0 Char
+15 #NS 14 mk
+16 #NS 0 char_wrapper_bitvec
+17 #NS 0 List
+18 #NS 17 nil
+19 #NS 17 cons
+20 #NS 0 α
+21 #NS 0 a
+22 #NS 0 String
+23 #NS 22 mk
+24 #NS 0 data
+25 #NS 0 string_bitvec
+1 #US 0
+0 #ES 0
+1 #ES 1
+2 #EC 1
+3 #EP #BD 11 2 2
+#IND 0 1 1 2 2 2 3 3
+4 #EP #BD 12 2 1
+5 #EC 4
+6 #EP #BD 12 2 5
+#IND 1 4 4 1 5 6
+7 #EC 6
+8 #EP #BD 13 2 7
+#IND 1 6 4 1 7 8
+9 #ELN 32
+10 #EA 7 9
+11 #EC 8
+12 #EP #BD 11 10 11
+#IND 0 8 1 1 9 12
+13 #EC 9
+14 #EV 0
+15 #EA 13 14
+16 #EL #BD 11 10 15
+#DEF 10 12 16
+17 #EC 14
+18 #EP #BD 11 2 17
+#IND 0 14 1 1 15 18
+19 #EP #BD 11 17 17
+20 #EV 0
+21 #EL #BD 11 17 20
+#DEF 16 19 21
+22 #EP #BD 20 1 1
+23 #EC 17
+24 #EV 0
+25 #EA 23 24
+26 #EP #BI 20 1 25
+27 #EV 1
+28 #EA 23 27
+29 #EV 2
+30 #EA 23 29
+31 #EP #BD 21 28 30
+32 #EP #BD 21 24 31
+33 #EP #BI 20 1 32
+#IND 1 17 22 2 18 26 19 33
+34 #EC 17
+35 #EC 14
+36 #EA 34 35
+37 #EC 22
+38 #EP #BD 24 36 37
+#IND 0 22 1 1 23 38
+39 #EC 22
+40 #ELS 68 69
+#DEF 25 39 40
