@@ -243,7 +243,32 @@ Register UInt32_size as lean.UInt32_size.
 
 Record Fin@{} (n : Nat) := Fin_mk { val : Nat; isLt : (val < n)%Nat }.
 Register Fin as lean.Fin.
-Record UInt32@{} := UInt32_mk { val0 : Fin UInt32_size }.
+
+(* [UInt32] uses the [BitVec 32] representation from Lean 4.17 onward. *)
+
+Fixpoint Nat_add (n m : Nat) : Nat :=
+  match n with
+  | Nat_zero => m
+  | Nat_succ n => Nat_succ (Nat_add n m)
+  end.
+
+Fixpoint Nat_mul (n m : Nat) : Nat :=
+  match n with
+  | Nat_zero => Nat_zero
+  | Nat_succ n => Nat_add m (Nat_mul n m)
+  end.
+
+Fixpoint Nat_pow (b e : Nat) : Nat :=
+  match e with
+  | Nat_zero => Nat_succ Nat_zero
+  | Nat_succ e => Nat_mul b (Nat_pow b e)
+  end.
+Register Nat_pow as lean.Nat_pow.
+
+Record BitVec@{} (w : Nat) : Type := BitVec_mk { toFin : Fin (Nat_pow 2 w) }.
+Register BitVec as lean.BitVec.
+
+Record UInt32@{} := UInt32_mk { toBitVec : BitVec 32 }.
 Register UInt32 as lean.UInt32.
 
 
@@ -295,7 +320,7 @@ Section strings.
     := n < 0xd800 \/ (0xdfff < n /\ n < 0x110000).
 
   Record Char@{} := Char_mk
-  { val1 : UInt32; valid : Nat_isValidChar val1.(val0).(val _) }.
+  { val1 : UInt32; valid : Nat_isValidChar val1.(toBitVec).(toFin _).(val _) }.
 
   Definition check_N_isValidChar (n : N) : bool
     := ((n <? 0xd800) || ((0xdfff <? n) && (n <? 0x110000)))%N%bool.
@@ -303,8 +328,63 @@ Section strings.
   Definition Fin_mk_N (n : N) (val : N) (isLt : (val <? n)%N = true) : Fin (Nat_of_N n)
     := Fin_mk (Nat_of_N n) (Nat_of_N val) (Nat_lt_to_N val n isLt).
 
-  Definition UInt32_mk_N (val : N) (isLt : (val <? 0x100000000)%N = true) : UInt32
-    := UInt32_mk (Fin_mk_N 0x100000000 val isLt).
+  Lemma Fin_eq_rec_r_val (n m : Nat) (x : Fin n) (H : m = n)
+    : Lean.val m (eq_rec_r (fun n => Fin n) x H) = Lean.val n x.
+  Proof. destruct H; reflexivity. Qed.
+
+  Lemma nat_of_Nat_add (n m : Nat)
+    : nat_of_Nat (Nat_add n m) = (nat_of_Nat n + nat_of_Nat m)%nat.
+  Proof. induction n; cbn; rewrite ?IHn; reflexivity. Qed.
+
+  Lemma N_of_Nat_add (n m : Nat)
+    : N_of_Nat (Nat_add n m) = (N_of_Nat n + N_of_Nat m)%N.
+  Proof. cbv [N_of_Nat]; rewrite nat_of_Nat_add, Nat2N.inj_add; reflexivity. Qed.
+
+  Lemma N_of_Nat_succ (n : Nat)
+    : N_of_Nat (Nat_succ n) = N.succ (N_of_Nat n).
+  Proof. unfold N_of_Nat; cbn [nat_of_Nat]; rewrite Nat2N.inj_succ; reflexivity. Qed.
+
+  Lemma N_of_Nat_mul (n m : Nat)
+    : N_of_Nat (Nat_mul n m) = (N_of_Nat n * N_of_Nat m)%N.
+  Proof.
+    induction n; cbn [Nat_mul]; [ reflexivity | ].
+    rewrite N_of_Nat_add, IHn.
+    rewrite N_of_Nat_succ, N.mul_succ_l, N.add_comm; reflexivity.
+  Qed.
+
+  Lemma N_of_Nat_pow (b e : Nat)
+    : N_of_Nat (Nat_pow b e) = (N_of_Nat b ^ N_of_Nat e)%N.
+  Proof.
+    induction e; cbn [Nat_pow]; [ reflexivity | ].
+    rewrite N_of_Nat_mul, IHe, N_of_Nat_succ, N.pow_succ_r'; reflexivity.
+  Qed.
+
+  Lemma N_of_Nat_inj (n m : Nat) : N_of_Nat n = N_of_Nat m -> n = m.
+  Proof.
+    cbv [N_of_Nat].
+    intro H; apply (f_equal N.to_nat) in H; rewrite !Nat2N.id in H.
+    apply (f_equal Nat_of_nat) in H; rewrite !Nat2natid in H; exact H.
+  Qed.
+
+  Lemma N_of_Nat_of_N (n : N) : N_of_Nat (Nat_of_N n) = n.
+  Proof. unfold N_of_Nat, Nat_of_N; rewrite nat2Natid, N2Nat.id; reflexivity. Qed.
+
+  Lemma Nat_pow_2_32 : Nat_pow 2 32 = Nat_of_N 0x100000000.
+  Proof.
+    apply N_of_Nat_inj; rewrite N_of_Nat_pow, N_of_Nat_of_N.
+    vm_compute; reflexivity.
+  Qed.
+
+  Definition UInt32_mk_N (val : N) (isLt : (val <? 0x100000000)%N = true) : UInt32.
+  Proof.
+    refine (UInt32_mk (BitVec_mk 32 _)).
+    rewrite Nat_pow_2_32.
+    exact (Fin_mk_N 0x100000000 val isLt).
+  Defined.
+
+  Lemma UInt32_mk_N_val (val : N) (isLt : (val <? 0x100000000)%N = true)
+    : (UInt32_mk_N val isLt).(toBitVec).(toFin _).(Lean.val _) = Nat_of_N val.
+  Proof. unfold UInt32_mk_N; apply Fin_eq_rec_r_val. Qed.
 
   Lemma Nat_isValidChar_mk_N (n : N) (isLt : check_N_isValidChar n = true)
     : Nat_isValidChar (Nat_of_N n).
@@ -330,8 +410,12 @@ Section strings.
     all: vm_compute; congruence.
   Qed.
 
-  Definition Char_mk_N (val : N) (isLt : ((val <? 0x100000000)%N && check_N_isValidChar val)%bool = true) : Char
-    := Char_mk (UInt32_mk_N val (proj1 (andb_prop _ _ isLt))) (Nat_isValidChar_mk_N val (proj2 (andb_prop _ _ isLt))).
+  Definition Char_mk_N (val : N) (isLt : ((val <? 0x100000000)%N && check_N_isValidChar val)%bool = true) : Char.
+  Proof.
+    refine (Char_mk (UInt32_mk_N val (proj1 (andb_prop _ _ isLt))) _).
+    rewrite UInt32_mk_N_val.
+    exact (Nat_isValidChar_mk_N val (proj2 (andb_prop _ _ isLt))).
+  Defined.
 
   Definition reflective_Char_mk (val : N)
     : if ((val <? 0x100000000)%N && check_N_isValidChar val)%bool
@@ -345,7 +429,6 @@ Section strings.
 
   Definition reflective_Char_mk_prim (val : Uint63.int)
     := reflective_Char_mk (Z.to_N (Uint63.to_Z val)).
-
 
   (* Definition reflective_UInt32_mk (val : N) : if (val <? 0x100000000)%N
                                               then UInt32
