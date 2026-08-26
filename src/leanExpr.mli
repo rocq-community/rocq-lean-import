@@ -22,7 +22,13 @@ type expr =
   | Nat of Z.t
   | String of string
 
-type def = { name : LeanName.t; ty : expr; body : expr; univs : LeanName.t list; }
+type def = {
+  name : LeanName.t;
+  ty : expr;
+  body : expr;
+  univs : LeanName.t list;
+  height : int option;
+}
 type ax = { name : LeanName.t; ty : expr; univs : LeanName.t list }
 
 type ind = {

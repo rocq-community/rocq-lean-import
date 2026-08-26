@@ -1235,7 +1235,7 @@ and ensure_exists n i =
     | Quot _ -> CErrors.user_err Pp.(str "quot must be predeclared")
     | exception Not_found -> CErrors.user_err Pp.(str "missing " ++ N.pp n))
 
-and declare_def { name = n; ty; body; univs; } i =
+and declare_def { name = n; ty; body; univs; height = exported_height } i =
   let ref, algs =
     match get_predeclared_def_some n i with
     | Some ((UInt32_size | Nat_isValidChar), _, (def_name, c)) ->
@@ -1268,8 +1268,12 @@ and declare_def { name = n; ty; body; univs; } i =
   in
   let () =
     let c = match ref with ConstRef c -> c | _ -> assert false in
-    let height = height n body in
-    Global.set_strategy (Conv_oracle.EvalConstRef c) (Level (-height))
+    let h =
+      match exported_height with
+      | Some h -> h
+      | None -> height n body
+    in
+    Global.set_strategy (Conv_oracle.EvalConstRef c) (Level (-h))
   in
   let inst = { ref; algs } in
   let () = add_declared n i inst in
@@ -1810,10 +1814,18 @@ let { Goptions.get = print_squashes } =
     ~key:[ "Lean"; "Print"; "Squash"; "Info" ]
     ~value:false ()
 
+type parser_state =
+  | OldParser of LeanParse.parsing_state
+  | NdjsonParser of LeanParseNdjson.parsing_state
+
 type input_state = {
-  pstate : LeanParse.parsing_state;
+  pstate : parser_state;
   skips : int;
 }
+
+let pp_parser_state = function
+  | OldParser state -> LeanParse.pp_state state
+  | NdjsonParser state -> LeanParseNdjson.pp_state state
 
 let finish state =
   let open Summary.Ref in
@@ -1852,7 +1864,7 @@ let finish state =
             str " (including quot)."
           else str ".")
       ++ fnl () ++
-      LeanParse.pp_state state.pstate ++
+      pp_parser_state state.pstate ++
       (if state.skips > 0 then str "Skipped " ++ int state.skips ++ fnl ()
        else mt ())
       ++ str "Max universe instance length "
@@ -1883,7 +1895,15 @@ let () =
 exception TimedOut
 
 let do_line state l =
-  let do_line () = LeanParse.do_line state ~lcnt:!lcnt l in
+  let do_line () =
+    match state.pstate with
+    | OldParser pstate ->
+      let pstate, oentry = LeanParse.do_line pstate ~lcnt:!lcnt l in
+      ({ state with pstate = OldParser pstate }, oentry)
+    | NdjsonParser pstate ->
+      let pstate, oentry = LeanParseNdjson.do_line pstate ~lcnt:!lcnt l in
+      ({ state with pstate = NdjsonParser pstate }, oentry)
+  in
   match !timeout with
   | None -> do_line ()
   | Some t ->
@@ -1894,6 +1914,35 @@ let do_line state l =
 let do_line state l =
   let t0 = System.get_time () in
   match do_line state l with
+  | state ->
+    let t1 = System.get_time () in
+    prtime t0 t1;
+    state
+  | exception e ->
+    let e = Exninfo.capture e in
+    (if fst e <> TimedOut then
+       let t1 = System.get_time () in
+       prtime t0 t1);
+    Exninfo.iraise e
+
+let do_prefix_line state l =
+  let do_prefix_line () =
+    match state.pstate with
+    | OldParser _ -> state
+    | NdjsonParser pstate ->
+      let pstate = LeanParseNdjson.do_prefix_line pstate ~lcnt:!lcnt l in
+      { state with pstate = NdjsonParser pstate }
+  in
+  match !timeout with
+  | None -> do_prefix_line ()
+  | Some t ->
+    (match Control.timeout (float_of_int t) do_prefix_line () with
+    | Ok v -> v
+    | Error info -> Exninfo.iraise (TimedOut, info))
+
+let do_prefix_line state l =
+  let t0 = System.get_time () in
+  match do_prefix_line state l with
   | state ->
     let t1 = System.get_time () in
     prtime t0 t1;
@@ -1925,12 +1974,17 @@ let rec do_input state ~from ~until ch =
       finish state;
       if not (until = None) then CErrors.user_err Pp.(str "unexpected EOF!");
       state
-    | _ when before_from from ->
-      incr lcnt;
-      do_input state ~from ~until ch
+    | l when before_from from ->
+      (match state.pstate with
+      | OldParser _ ->
+        incr lcnt;
+        do_input state ~from ~until ch
+      | NdjsonParser _ ->
+        let state = do_prefix_line state l in
+        incr lcnt;
+        do_input state ~from ~until ch)
     | l ->
-      let pstate, oentry = do_line state.pstate l in
-      let state = { state with pstate } in
+      let state, oentry = do_line state l in
       (match (just_parse (), oentry) with
       | true, _ | false, None ->
         incr lcnt;
@@ -1999,9 +2053,33 @@ let lean_obj =
 let import ~from ~until f =
   let open Summary.Ref in
   Stdlib.(lcnt := 1);
+  let initial_pstate =
+    let rec first_non_empty_line ch =
+      match input_line ch with
+      | l ->
+        if String.trim l = "" then first_non_empty_line ch
+        else Some l
+      | exception End_of_file -> None
+    in
+    let ch = open_in f in
+    match first_non_empty_line ch with
+    | Some l ->
+      close_in ch;
+      if LeanParseNdjson.is_ndjson_line l then NdjsonParser LeanParseNdjson.empty_state
+      else OldParser !pstate
+    | None ->
+      close_in ch;
+      OldParser !pstate
+    | exception e ->
+      close_in_noerr ch;
+      raise e
+  in
   (* silence the definition messages from Coq *)
   let { pstate = pstatev } =
     Flags.silently (fun () ->
-        do_input { pstate = !pstate; skips = 0 } ~from ~until (open_in f)) ()
+        do_input { pstate = initial_pstate; skips = 0 } ~from ~until (open_in f)) ()
   in
-  Lib.add_leaf (lean_obj (pstatev, !sets, !declared, !entries, !squash_info, !height_cache))
+  let old_pstatev =
+    match pstatev with OldParser pstatev -> pstatev | NdjsonParser _ -> !pstate
+  in
+  Lib.add_leaf (lean_obj (old_pstatev, !sets, !declared, !entries, !squash_info, !height_cache))
