@@ -1235,7 +1235,7 @@ and ensure_exists n i =
     | Quot _ -> CErrors.user_err Pp.(str "quot must be predeclared")
     | exception Not_found -> CErrors.user_err Pp.(str "missing " ++ N.pp n))
 
-and declare_def { name = n; ty; body; univs; } i =
+and declare_def { name = n; ty; body; univs; height = exported_height } i =
   let ref, algs =
     match get_predeclared_def_some n i with
     | Some ((UInt32_size | Nat_isValidChar), _, (def_name, c)) ->
@@ -1268,8 +1268,12 @@ and declare_def { name = n; ty; body; univs; } i =
   in
   let () =
     let c = match ref with ConstRef c -> c | _ -> assert false in
-    let height = height n body in
-    Global.set_strategy (Conv_oracle.EvalConstRef c) (Level (-height))
+    let h =
+      match exported_height with
+      | Some h -> h
+      | None -> height n body
+    in
+    Global.set_strategy (Conv_oracle.EvalConstRef c) (Level (-h))
   in
   let inst = { ref; algs } in
   let () = add_declared n i inst in

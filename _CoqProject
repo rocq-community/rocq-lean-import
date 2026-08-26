@@ -1,4 +1,4 @@
--generate-meta-for-package coq-lean-import
+COQMF_METAFILE = src/META.coq-lean-import
 -Q src LeanImport
 -I src
 

@@ -82,7 +82,7 @@ let do_line ~lcnt state l =
     let ty = get_expr state ty
     and body = get_expr state body
     and univs = List.map (get_name state) univs in
-    let def = { name; ty; body; univs; } in
+    let def = { name; ty; body; univs; height = None } in
     (state, Some (Entry (Def def)))
   | "#AX" :: name :: ty :: univs ->
     let name = get_name state name in

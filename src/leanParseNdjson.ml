@@ -206,12 +206,12 @@ let parse_axiom ~lcnt state payload =
   let univs = level_params ~lcnt state payload in
   (state, Some (Entry (Ax { name; ty; univs })))
 
-let require_reducibility_hint ~lcnt payload =
+let reducibility_height ~lcnt payload =
   match require_member ~lcnt "hints" payload with
-  | `String ("opaque" | "abbrev") -> ()
+  | `String ("opaque" | "abbrev") -> None
   | `Assoc fields -> (
     match List.assoc_opt "regular" fields with
-    | Some (`Int _) -> ()
+    | Some (`Int n) when n >= 0 -> Some n
     | _ -> err ~lcnt "field hints must be opaque, abbrev, or regular")
   | _ -> err ~lcnt "field hints must be opaque, abbrev, or regular"
 
@@ -220,31 +220,35 @@ let require_safety ~lcnt payload =
   | `String ("unsafe" | "safe" | "partial") -> ()
   | _ -> err ~lcnt "field safety must be unsafe, safe, or partial"
 
-let parse_deflike_common ~lcnt state payload =
+let parse_deflike_common ~height ~lcnt state payload =
   let name = get_name ~lcnt state (require_int ~lcnt "name" payload) in
   line_msg ~lcnt name;
   let ty = get_expr ~lcnt state (require_int ~lcnt "type" payload) in
   let body = get_expr ~lcnt state (require_int ~lcnt "value" payload) in
   let univs = level_params ~lcnt state payload in
-  (state, Some (Entry (Def { name; ty; body; univs })))
+  (state, Some (Entry (Def { name; ty; body; univs; height })))
+
+let validate_mutual_group ~lcnt state payload =
+  require_list ~lcnt "all" payload
+  |> List.iter (fun n -> ignore (get_name ~lcnt state (as_int ~lcnt n)))
 
 let parse_def ~lcnt state payload =
   forbid_member ~lcnt "isUnsafe" payload;
-  require_reducibility_hint ~lcnt payload;
+  let height = reducibility_height ~lcnt payload in
   require_safety ~lcnt payload;
-  ignore (require_list ~lcnt "all" payload);
-  parse_deflike_common ~lcnt state payload
+  validate_mutual_group ~lcnt state payload;
+  parse_deflike_common ~height ~lcnt state payload
 
 let parse_thm ~lcnt state payload =
   forbid_member ~lcnt "isUnsafe" payload;
   forbid_member ~lcnt "safety" payload;
-  ignore (require_list ~lcnt "all" payload);
-  parse_deflike_common ~lcnt state payload
+  validate_mutual_group ~lcnt state payload;
+  parse_deflike_common ~height:None ~lcnt state payload
 
 let parse_opaque ~lcnt state payload =
   ignore (require_bool ~lcnt "isUnsafe" payload);
-  ignore (require_list ~lcnt "all" payload);
-  parse_deflike_common ~lcnt state payload
+  validate_mutual_group ~lcnt state payload;
+  parse_deflike_common ~height:None ~lcnt state payload
 
 let parse_quot ~lcnt state payload =
   ignore (require_string ~lcnt "kind" payload);
