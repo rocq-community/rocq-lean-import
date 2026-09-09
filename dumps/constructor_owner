@@ -1,0 +1,74 @@
+1 #NS 0 Token
+1 #US 0
+0 #ES 1
+2 #NS 1 mk
+1 #EC 1
+3 #NS 1 rec
+4 #NS 0 u
+2 #UP 4
+5 #NS 0 motive
+6 #NS 0 t
+2 #ES 2
+3 #EP #BD 6 1 2
+7 #NS 0 mk
+4 #EV 0
+5 #EC 2
+6 #EA 4 5
+7 #EV 2
+8 #EA 7 4
+9 #EP #BD 6 1 8
+10 #EP #BD 7 6 9
+11 #EP #BI 5 3 10
+12 #EL #BD 7 6 4
+13 #EL #BD 5 3 12
+#IND 0 1 0 1 2 1
+8 #NS 0 Box
+9 #NS 0 α
+3 #US 2
+14 #ES 3
+15 #EP #BD 9 14 14
+10 #NS 8 mk
+11 #NS 0 value
+16 #EC 8 2
+17 #EV 1
+18 #EA 16 17
+19 #EP #BD 11 4 18
+20 #EP #BI 9 14 19
+12 #NS 8 rec
+13 #NS 0 u_1
+4 #UP 13
+21 #EA 16 4
+22 #ES 4
+23 #EP #BD 6 21 22
+24 #EC 10 2
+25 #EA 24 7
+26 #EA 25 4
+27 #EA 17 26
+28 #EP #BD 11 17 27
+29 #EA 16 7
+30 #EP #BD 6 29 8
+31 #EP #BD 7 28 30
+32 #EP #BI 5 23 31
+33 #EP #BI 9 14 32
+34 #EA 17 4
+35 #EL #BD 11 7 34
+36 #EL #BD 7 28 35
+37 #EL #BD 5 23 36
+38 #EL #BD 9 14 37
+#IND 1 8 15 1 10 20 4
+14 #NS 8 value
+15 #NS 0 self
+39 #EP #BD 15 21 17
+40 #EP #BI 9 14 39
+41 #EJ 8 0 4
+42 #EL #BD 15 21 41
+43 #EL #BD 9 14 42
+#DEF 14 40 43 4
+16 #NS 0 repro
+44 #EC 14 0
+45 #EA 44 1
+46 #EC 10 0
+47 #EA 46 1
+48 #EA 47 5
+49 #EA 45 48
+#DEF 16 1 49
