@@ -12,3 +12,5 @@ rec_single_ctor.v
 lowercase_hex.v
 projection_relevance.v
 dependent_sprop_projection.v
+mutual_inductives.v
+mutual_instances.v
