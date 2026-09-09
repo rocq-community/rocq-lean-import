@@ -1,0 +1,98 @@
+1 #NS 0 Box
+2 #NS 0 u
+1 #UP 2
+3 #NS 0 α
+0 #ES 1
+2 #US 0
+3 #UM 2 1
+1 #ES 3
+2 #EP #BD 3 0 1
+4 #NS 1 mk
+5 #NS 0 value
+3 #EV 0
+4 #EC 1 1
+5 #EV 1
+6 #EA 4 5
+7 #EP #BD 5 3 6
+8 #EP #BI 3 0 7
+6 #NS 1 rec
+7 #NS 0 u_1
+4 #UP 7
+8 #NS 0 motive
+9 #NS 0 t
+9 #EA 4 3
+10 #ES 4
+11 #EP #BD 9 9 10
+10 #NS 0 mk
+12 #EC 4 1
+13 #EV 2
+14 #EA 12 13
+15 #EA 14 3
+16 #EA 5 15
+17 #EP #BD 5 5 16
+18 #EA 4 13
+19 #EA 13 3
+20 #EP #BD 9 18 19
+21 #EP #BD 10 17 20
+22 #EP #BI 8 11 21
+23 #EP #BI 3 0 22
+24 #EA 5 3
+25 #EL #BD 5 13 24
+26 #EL #BD 10 17 25
+27 #EL #BD 8 11 26
+28 #EL #BD 3 0 27
+#IND 1 1 2 1 4 8 2
+11 #NS 0 True
+29 #ES 0
+12 #NS 11 intro
+30 #EC 11
+13 #NS 11 rec
+31 #EP #BD 9 30 0
+14 #NS 0 intro
+32 #EC 12
+33 #EA 3 32
+34 #EP #BD 9 30 19
+35 #EP #BD 14 33 34
+36 #EP #BI 8 31 35
+37 #EL #BD 14 33 3
+38 #EL #BD 8 31 37
+#IND 0 11 29 1 12 30
+15 #NS 0 boxedTrue
+39 #EC 1 0
+40 #EA 39 30
+41 #EC 4 0
+42 #EA 41 30
+43 #EA 42 32
+#DEF 15 40 43
+16 #NS 0 Nonempty
+44 #EP #BD 3 0 29
+17 #NS 16 intro
+18 #NS 0 val
+45 #EC 16 1
+46 #EA 45 5
+47 #EP #BD 18 3 46
+48 #EP #BI 3 0 47
+19 #NS 16 rec
+49 #EA 45 3
+50 #EP #BD 9 49 29
+51 #EC 17 1
+52 #EA 51 13
+53 #EA 52 3
+54 #EA 5 53
+55 #EP #BD 18 5 54
+56 #EA 45 13
+57 #EP #BD 9 56 19
+58 #EP #BD 14 55 57
+59 #EP #BI 8 50 58
+60 #EP #BI 3 0 59
+61 #EL #BD 14 55 25
+62 #EL #BD 8 50 61
+63 #EL #BD 3 0 62
+#IND 1 16 44 1 17 48 2
+20 #NS 0 nonemptyTrue
+64 #EC 16 0
+65 #EA 64 30
+66 #EC 17 0
+67 #EA 66 30
+68 #EA 67 32
+#DEF 20 65 68

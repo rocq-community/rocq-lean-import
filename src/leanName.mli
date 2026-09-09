@@ -6,6 +6,7 @@ val anon : t
 val of_list : string list -> t [@@warning "-32"]
 val append : t -> string -> t
 val append_list : t -> string list -> t
+val unappend : t -> (t * string) option
 val equal : t -> t -> bool
 
 val raw_append : t -> string -> t

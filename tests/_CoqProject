@@ -12,3 +12,16 @@ rec_single_ctor.v
 lowercase_hex.v
 projection_relevance.v
 dependent_sprop_projection.v
+mutual_inductives.v
+mutual_instances.v
+nested_containers.v
+nested_partial_application.v
+mutual_nested_recursor.v
+nested_record_containers.v
+nested_record_eligibility.v
+sprop_record_scheme.v
+nested_below.v
+nested_record_tree_cases.v
+nested_mixed_fields.v
+nested_reload_prefix.v
+nested_reload.v

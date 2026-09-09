@@ -45,6 +45,7 @@ let clean_string s =
 
 let append a b = clean_string b :: a
 let append_list a bs = List.append (List.rev_map clean_string bs) a
+let unappend = function [] -> None | component :: parent -> Some (parent, component)
 let raw_append a b = match a with [] -> [ b ] | hd :: tl -> (hd ^ b) :: tl
 let to_id (x : t) = Id.of_string (String.concat "_" (List.rev x))
 let to_name x = if x = [] then Anonymous else Name (to_id x)
