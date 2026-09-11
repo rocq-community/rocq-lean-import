@@ -19,6 +19,8 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - uses: coq-community/docker-coq-action@v1
         with:
           opam_file: 'rocq-lean-import.opam'

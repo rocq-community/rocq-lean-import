@@ -12,3 +12,13 @@ rec_single_ctor.v
 lowercase_hex.v
 projection_relevance.v
 dependent_sprop_projection.v
+ndjson_bin_tree.v
+ndjson_list.v
+ndjson_logic.v
+ndjson_quot.v
+ndjson_pnni.v
+ndjson_anomaly_print_projections.v
+ndjson_ulift.v
+ndjson_core.v
+ndjson_init.v
+ndjson_stdlib.v

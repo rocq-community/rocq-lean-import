@@ -1,0 +1,10 @@
+
+package "plugin" (
+  directory = "."
+  requires = "rocq-runtime.plugins.ltac yojson"
+  archive(byte) = "lean_import.cma"
+  archive(native) = "lean_import.cmxa"
+  plugin(byte) = "lean_import.cma"
+  plugin(native) = "lean_import.cmxs"
+)
+directory = "."

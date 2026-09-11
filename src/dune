@@ -1,7 +1,7 @@
 (library
  (name lean_import)
  (synopsis "Import Lean proofs into Coq!")
- (libraries rocq-runtime.vernac)
+ (libraries rocq-runtime.vernac yojson)
  (modules_without_implementation leanExpr)
  (flags :standard -w -40))
 

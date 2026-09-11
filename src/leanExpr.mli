@@ -22,7 +22,20 @@ type expr =
   | Nat of Z.t
   | String of string
 
-type def = { name : LeanName.t; ty : expr; body : expr; univs : LeanName.t list; }
+type reducibility_hint =
+  | LegacyHint
+  | AbbrevHint
+  | RegularHint of int
+  | OpaqueHint
+
+type def = {
+  name : LeanName.t;
+  ty : expr;
+  body : expr;
+  univs : LeanName.t list;
+  hint : reducibility_hint;
+  kernel_opaque : bool;
+}
 type ax = { name : LeanName.t; ty : expr; univs : LeanName.t list }
 
 type ind = {
