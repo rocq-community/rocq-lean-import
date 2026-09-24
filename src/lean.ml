@@ -1507,22 +1507,25 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
                  | _ :: _, _, true -> (None, [], ctys))
         | _ -> (None, [], ctys)
       in
+      let uinst, auctx = abstract_universes univs in
+      let usubst = make_instance_subst uinst in
+      let nf_univs c = Vars.subst_univs_level_constr usubst c in
       let entry finite =
         {
-          Entries.mind_entry_params = params;
+          Entries.mind_entry_params = Vars.subst_univs_level_context usubst params;
           mind_entry_record = record;
           mind_entry_finite = finite;
           mind_entry_inds =
             [
               {
                 mind_entry_typename = ind_name;
-                mind_entry_arity = ty;
+                mind_entry_arity = nf_univs ty;
                 mind_entry_consnames = List.map (fun n -> name_for n i) cnames;
-                mind_entry_lc = ctys;
+                mind_entry_lc = List.map nf_univs ctys;
               };
             ];
           mind_entry_private = None;
-          mind_entry_universes = Polymorphic_ind_entry univs;
+          mind_entry_universes = Polymorphic_ind_entry auctx;
           mind_entry_variance = None;
         }
       in
