@@ -1,7 +1,7 @@
 
 package "plugin" (
   directory = "."
-  requires = "rocq-runtime.plugins.ltac yojson"
+  requires = "rocq-runtime.plugins.ltac yojson domainslib"
   archive(byte) = "lean_import.cma"
   archive(native) = "lean_import.cmxa"
   plugin(byte) = "lean_import.cma"

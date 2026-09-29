@@ -1,5 +1,5 @@
 MAKE_OPTS:= --no-builtin-rules
-CAMLPKGS ?= -package yojson
+CAMLPKGS ?= -package yojson -package domainslib
 
 TEST_GOALS:=$(filter test%, $(MAKECMDGOALS))
 

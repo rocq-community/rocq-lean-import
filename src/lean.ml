@@ -13,6 +13,7 @@ open Univ
 open UVars
 module RelDecl = Context.Rel.Declaration
 open LeanExpr
+module T = Domainslib.Task
 
 let __ () = assert false
 let invalid = Constr.(mkApp (mkSet, [| mkSet |]))
@@ -21,15 +22,56 @@ let add_universe l ~lbound g =
   let g = UGraph.add_universe l ~strict:false g in
   UGraph.enforce_constraint (lbound, Le, l) g
 
+let pool = ref None
+
+let to_await = ref []
+
+let { Goptions.get = lean_delayed_opaques } =
+  Goptions.declare_bool_option_and_ref
+    ~key:[ "Lean"; "Delayed"; "Opaques" ]
+    ~value:true ()
+
 let quickdef ?(opaque = false) ~name ~types ~univs body =
-  let entry = Declare.definition_entry ~opaque ?types ~univs body in
-  let scope = Locality.(Global ImportDefaultBehavior) in
-  let kind = Decls.(IsDefinition Definition) in
-  let uctx =
-    UState.empty
-    (* used for ubinders and hook *)
-  in
-  Declare.declare_entry ~name ~scope ~kind ~impargs:[] ~uctx entry
+  if opaque && lean_delayed_opaques () then
+    let types = Option.get types in
+    let univs = match univs with
+      | UState.Polymorphic_entry uctx, _ -> Entries.Polymorphic_entry uctx
+      | _ -> assert false
+    in
+    let kn = Global.add_constant name (OpaqueEntry {
+        opaque_entry_body = ();
+        opaque_entry_secctx = Id.Set.empty;
+        opaque_entry_type = types;
+        opaque_entry_universes = univs;
+      })
+    in
+    let i = match (Global.lookup_constant kn).const_body with
+      | OpaqueDef o ->
+        let _, _, _, i = Opaqueproof.repr o in
+        i
+      | _ -> assert false
+    in
+    let body_check =
+      T.async (Option.get !pool) (fun () ->
+          let startt = Unix.gettimeofday() in
+          let cert = Safe_typing.check_opaque (Global.safe_env()) i
+              ((body, Univ.ContextSet.empty), Safe_typing.empty_private_constants)
+          in
+          let endt = Unix.gettimeofday() in
+          endt -. startt, cert)
+    in
+    let () = to_await := (body, i, body_check) :: !to_await in
+    let () = Declare.register_constant None kn (IsProof Lemma) ImportDefaultBehavior in
+    GlobRef.ConstRef kn
+  else
+    let entry = Declare.definition_entry ~opaque ?types ~univs body in
+    let scope = Locality.(Global ImportDefaultBehavior) in
+    let kind = Decls.(IsDefinition Definition) in
+    let uctx =
+      UState.empty
+      (* used for ubinders and hook *)
+    in
+    Declare.declare_entry ~name ~scope ~kind ~impargs:[] ~uctx entry
 
 type extended_level = Level of Level.t | LSProp
 
@@ -1261,17 +1303,23 @@ and ensure_exists n i =
     | exception Not_found -> CErrors.user_err Pp.(str "missing " ++ N.pp n))
 
 and declare_def { name = n; ty; body; univs; hint; kernel_opaque } i =
-  let ref, algs =
+  let ref, algs, kernel_opaque =
     match get_predeclared_def_some n i with
     | Some ((UInt32_size | Nat_isValidChar), _, (def_name, c)) ->
       (* Hack to let the user predeclare some constants
          TODO make a more general Register-like API? *)
       Feedback.msg_info Pp.(Id.print def_name ++ str " is predeclared");
-      (GlobRef.ConstRef c, [])
+      (GlobRef.ConstRef c, [], kernel_opaque)
     | None ->
       let uconv = start_uconv univs i in
       let uconv, ty = to_constr empty_env ty uconv in
       let uconv, body = to_constr empty_env body uconv in
+      let kernel_opaque =
+        kernel_opaque ||
+        with_env_evm empty_env uconv (fun env evd () ->
+            Retyping.is_term_irrelevant env evd (EConstr.of_constr body))
+          ()
+      in
       let univs, algs = univ_entry uconv univs in
       let ref =
         try quickdef ~opaque:kernel_opaque ~name:(name_for n i) ~types:(Some ty) ~univs body
@@ -1289,7 +1337,7 @@ and declare_def { name = n; ty; body; univs; hint; kernel_opaque } i =
                    ty);
           Exninfo.iraise e
       in
-      (ref, algs)
+      (ref, algs, kernel_opaque)
   in
   let () =
     let c = match ref with ConstRef c -> c | _ -> assert false in
@@ -1862,6 +1910,17 @@ let pp_parser_state = function
   | NdjsonParser state -> LeanParseNdjson.pp_state state
 
 let finish state =
+  (* dubious interaction with timeout and await *)
+  let opaque_cnt = List.length !to_await in
+  let opaquet = ref 0. in
+  let () = List.iter (fun (body,i,a) ->
+      let t, cert = T.await (Option.get !pool) a in
+      opaquet := !opaquet +. t;
+      Global.fill_opaque cert;
+      Opaques.declare_manual_opaque i (body, PrivatePolymorphic Univ.ContextSet.empty))
+      !to_await
+  in
+  let () = to_await := [] in
   let open Summary.Ref in
   let max_univs, cnt =
     N.Map.fold
@@ -1897,7 +1956,10 @@ let finish state =
       ++ (if N.Map.exists (fun _ -> function Quot _ -> true | _ -> false) !entries then
             str " (including quot)."
           else str ".")
-      ++ fnl () ++
+      ++ fnl ()
+      ++ int opaque_cnt ++ str " parallelized opaques (" ++
+      str (Printf.sprintf "%f" Stdlib.(!opaquet))
+      ++ str "s)." ++ fnl() ++
       pp_parser_state state.pstate ++
       (if state.skips > 0 then str "Skipped " ++ int state.skips ++ fnl ()
        else mt ())
@@ -2085,8 +2147,16 @@ let lean_obj =
     }
 
 let import ~from ~until f =
+  lcnt := 1;
+  let pool = match !pool with
+    | None ->
+      let v = T.setup_pool ~num_domains:8 () in
+      pool := Some v;
+      v
+    | Some v -> v
+  in
+  let () = assert (List.is_empty !to_await) in
   let open Summary.Ref in
-  Stdlib.(lcnt := 1);
   let initial_pstate =
     let rec first_non_empty_line ch =
       match input_line ch with
@@ -2111,7 +2181,8 @@ let import ~from ~until f =
   (* silence the definition messages from Coq *)
   let { pstate = pstatev } =
     Flags.silently (fun () ->
-        do_input { pstate = initial_pstate; skips = 0 } ~from ~until (open_in f)) ()
+        T.run pool (fun () ->
+            do_input { pstate = initial_pstate; skips = 0 } ~from ~until (open_in f))) ()
   in
   let old_pstatev =
     match pstatev with OldParser pstatev -> pstatev | NdjsonParser _ -> !pstate
