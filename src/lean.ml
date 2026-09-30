@@ -311,6 +311,7 @@ type uconv = {
       (** Map from algebraic universes to levels (only levels representing an
           algebraic) *)
   graph : UGraph.t;
+  csts : UnivConstraints.t;
 }
 
 let lean_id = Id.of_string "Lean"
@@ -349,16 +350,22 @@ let level_of_universe u =
 let level_of_universe u =
   if lean_fancy_univs () then level_of_universe u else UnivGen.fresh_level ()
 
-let update_graph (l, u) (l', u') graph =
-  if UGraph.check_leq graph (Universe.super u) u' then
-    UGraph.enforce_constraint (l, Lt, l') graph
-  else if UGraph.check_leq graph (Universe.super u') u then
-    UGraph.enforce_constraint (l', Lt, l) graph
-  else if UGraph.check_leq graph u u' then
-    UGraph.enforce_constraint (l, Le, l') graph
-  else if UGraph.check_leq graph u' u then
-    UGraph.enforce_constraint (l', Le, l) graph
-  else graph
+let update_graph (l, u) (l', u') csts graph =
+  let open UnivConstraint in
+  let cst =
+    if UGraph.check_leq graph (Universe.super u) u' then
+      Some (l, Lt, l')
+    else if UGraph.check_leq graph (Universe.super u') u then
+      Some (l', Lt, l)
+    else if UGraph.check_leq graph u u' then
+      Some (l, Le, l')
+    else if UGraph.check_leq graph u' u then
+      Some (l', Le, l)
+    else None
+  in
+  match cst with
+  | None -> csts, graph
+  | Some cst -> UnivConstraints.add cst csts, UGraph.enforce_constraint cst graph
 
 let is_sets u =
   match Universe.repr u with
@@ -396,21 +403,22 @@ let to_univ_level u uconv =
         let uconv, mset = level_of_sets uconv (max_increment u) in
         let l = level_of_universe u in
         let graph = add_universe l ~lbound:mset uconv.graph in
-        let graph =
+        let csts = UnivConstraints.add (mset, Le, l) uconv.csts in
+        let csts, graph =
           Universe.Map.fold
-            (fun u' l' graph -> update_graph (l, u) (l', u') graph)
-            uconv.levels graph
+            (fun u' l' (csts, graph) -> update_graph (l, u) (l', u') csts graph)
+            uconv.levels (csts, graph)
         in
-        let graph =
+        let csts, graph =
           N.Map.fold
-            (fun _ l' graph ->
+            (fun _ l' (csts,graph) ->
               match l' with
-              | LSProp -> graph
-              | Level l' -> update_graph (l, u) (l', Universe.make l') graph)
-            uconv.map graph
+              | LSProp -> csts, graph
+              | Level l' -> update_graph (l, u) (l', Universe.make l') csts graph)
+            uconv.map (csts, graph)
         in
         let uconv =
-          { uconv with levels = Universe.Map.add u l uconv.levels; graph }
+          { uconv with levels = Universe.Map.add u l uconv.levels; graph; csts }
         in
         (uconv, l)))
 
@@ -586,6 +594,7 @@ let start_uconv univs i =
       graph = Global.universes ();
       map = N.Map.empty;
       levels = Universe.Map.empty;
+      csts = UnivConstraints.empty;
     }
   in
   let uconv, set1 = level_of_sets uconv 1 in
@@ -594,14 +603,15 @@ let start_uconv univs i =
       assert (i = 0);
       uconv
     | u :: univs ->
-      let map, graph =
+      let map, graph, csts =
         if i mod 2 = 0 then
           let v = univ_of_name u in
           ( N.Map.add u (Level v) uconv.map,
-            add_universe v ~lbound:set1 uconv.graph )
-        else (N.Map.add u LSProp uconv.map, uconv.graph)
+            add_universe v ~lbound:set1 uconv.graph,
+            UnivConstraints.add (set1, Le, v) uconv.csts)
+        else (N.Map.add u LSProp uconv.map, uconv.graph, uconv.csts)
       in
-      aux { uconv with map; graph } (i / 2) univs
+      aux { uconv with map; graph; csts } (i / 2) univs
   in
   aux uconv i univs
 
@@ -612,7 +622,7 @@ let rec make_unames univs ounivs =
   | _u :: univs, o :: ounivs -> N.to_name o :: make_unames univs ounivs
   | [], _ :: _ -> assert false
 
-let univ_entry_gen { map; levels; graph } ounivs =
+let univ_entry_gen { map; levels; graph; csts } ounivs =
   let ounivs =
     CList.map_filter
       (fun u ->
@@ -638,9 +648,6 @@ let univ_entry_gen { map; levels; graph } ounivs =
   let uset =
     List.fold_left (fun kept l -> Level.Set.add l kept) Level.Set.empty univs
   in
-  let kept = Level.Set.add Level.set uset in
-  let kept = Int.Map.fold (fun _ -> Level.Set.add) Summary.Ref.(!sets) kept in
-  let csts = UGraph.constraints_for ~kept graph in
   let csts =
     UnivConstraints.filter
       (fun (a, _, b) -> Level.Set.mem a uset || Level.Set.mem b uset)
