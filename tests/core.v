@@ -19,13 +19,21 @@ Redirect "core5.log" Lean Import "../dumps/core" 12523 12532.
 missing USize.toUInt64.proof_1 *)
 Redirect "core6.log" Fail Lean Import "../dumps/core" 12532 12533.
 
-Redirect "core7.log" Lean Import "../dumps/core" 12533 14481.
+Redirect "core7.log" Lean Import "../dumps/core" 12533 15093.
 
-(* Error:
-Error at line 14481 (for Quotient): #DEF 1613 12306 12311 3
-missing Quot *)
-Redirect "core8.log" Fail Lean Import "../dumps/core" 14481 63566.
+Redirect "core8.log" Fail Lean Import "../dumps/core" 15093 15094.
+(* Error at line 15093 (for Lean.Syntax.below): #DEF 1666 12800 12843 3
+The term "Lean_Syntax_recl" ...
+cannot be applied ...
+The 2nd term has type "Array_inst1 Lean_Syntax -> Type" which should be a subtype of
+ "(fun _ : Lean_Syntax => Type) Lean_Syntax_missing".
 
+(nested recursor generation difference)
+ *)
+
+
+
+(* next error is another missing constant *)
 
 (* Unset Lean Upfront Instantiation. *)
 (* Redirect "core12.log" Lean Import "../dumps/core" 5464 5487. *)
