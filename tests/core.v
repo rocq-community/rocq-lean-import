@@ -5,7 +5,9 @@ Redirect "core1.log" Lean Import "../dumps/core" 1 12434.
 
 (* theorem usize_size_eq :
 USize.size = 4294967296 ∨ USize.size = 18446744073709551616  is too slow *)
+Unset Lean Delayed Opaques. (* doesn't work well with timeout / fail *)
 Redirect "core2.log" Fail Timeout 1 Lean Import "../dumps/core" 12434 12435.
+Set Lean Delayed Opaques.
 
 Redirect "core3.log" Lean Import "../dumps/core" 12435 12522.
 
