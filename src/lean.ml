@@ -348,7 +348,7 @@ let level_of_universe u =
   level_of_universe_core u
 
 let level_of_universe u =
-  if lean_fancy_univs () then level_of_universe u else UnivGen.fresh_level ()
+  if lean_fancy_univs () then level_of_universe u else Univ.Level.make (UnivGen.new_univ_global ())
 
 let update_graph (l, u) (l', u') csts graph =
   let open UnivConstraint in
@@ -382,7 +382,7 @@ let rec level_of_sets uconv n =
       let uconv, p = level_of_sets uconv (n - 1) in
       let l =
         if lean_fancy_univs () then level_of_universe_core [ (Level.set, n) ]
-        else UnivGen.fresh_level ()
+        else Univ.Level.make (UnivGen.new_univ_global ())
       in
       Global.push_context_set
         (Level.Set.singleton l, UnivConstraints.singleton (p, Lt, l));
@@ -586,7 +586,7 @@ let univ_of_name u =
   if lean_fancy_univs () then
     let u = DirPath.make [ N.to_id u; lean_id ] in
     Level.(make (UGlobal.make u "" 0))
-  else UnivGen.fresh_level ()
+  else Univ.Level.make (UnivGen.new_univ_global ())
 
 let start_uconv univs i =
   let uconv =
@@ -1599,7 +1599,7 @@ and declare_ind { name = n; params; ty; ctors; univs } i =
           if lean_fancy_univs () then
             let u = DirPath.make [ Id.of_string "motive"; lean_id ] in
             Level.(make (UGlobal.make u "" 0))
-          else UnivGen.fresh_level ()
+          else Univ.Level.make (UnivGen.new_univ_global ())
         in
         Level u
     in
